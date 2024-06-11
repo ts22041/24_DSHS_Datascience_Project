@@ -11,83 +11,6 @@ word_data = pd.DataFrame(data)
 data = pd.read_csv('2023_kice_eng_text_sample.csv')
 kice_data = pd.DataFrame(data)
 
-
-plt.rc("font", family = "Malgun Gothic")
-sns.set(font="Malgun Gothic", rc={"axes.unicode_minus":False}, style='white')
-
-def draw_figure1():
-    pos_map = {
-        '명': '명사',
-        '동': '동사',
-        '형': '형용사',
-        '부': '부사',
-        '전': '전치사',
-        '접': '접사'
-    }
-    pos_counts = word_data['품사1'].map(pos_map).value_counts()
-    plt.figure(figsize=(4, 4))
-    st.write('**품사별 단어 수**')
-    sns.barplot(x=pos_counts.index, y=pos_counts.values, palette=sns.color_palette("plasma")[::-1])
-    plt.xlabel('품사')
-    plt.ylabel('단어 수')
-    plt.xticks(rotation=45)
-    st.pyplot(plt)
-
-def draw_figure2():
-    theme_counts = word_data['테마'].value_counts()
-    plt.figure(figsize=(4, 4))
-    st.write('**테마별 단어 분포**')
-    sns.barplot(x=theme_counts.index, y=theme_counts.values/16, palette=sns.color_palette("plasma")[::-1])
-    plt.xlabel('테마 종류')
-    plt.ylabel('단어 분포[%]')
-    plt.xticks([], [])
-    st.pyplot(plt)
-
-def draw_figure3():
-    theme_counts2 = word_data['테마'].value_counts()
-    most_frequent_theme = theme_counts2.idxmax()
-    theme_counts = theme_counts2.drop(most_frequent_theme)
-    plt.figure(figsize=(4, 4))
-    st.write('**기타 테마별 단어 수**')
-    sns.barplot(x=theme_counts.index, y=theme_counts.values, palette=sns.color_palette("plasma")[::-1][1:])
-    plt.xlabel('테마 종류(기타)')
-    plt.ylabel('단어 수')
-    plt.xticks(rotation=90)
-    st.pyplot(plt)
-
-def draw_figure4():
-    pass
-
-def func_textAnalysis():
-    text = st.text_input("아래 내용을 삭제하고 입력하세요", 'There is something deeply paradoxical about the professional status of sports journalism, especially in the medium of print.  In discharging their usual responsibilities of description and commentary, reporters’ accounts of sports events are eagerly consulted by sports fans, while in their broader journalistic role of covering sport in its many forms, sports journalists are among the most visible of all contemporary writers.  The ruminations of the elite class of ‘celebrity’ sports journalists are much sought after by the major newspapers, their lucrative contracts being the envy of colleagues in other ‘disciplines’ of journalism.  Yet sports journalists do not have a standing in their profession that corresponds to the size of their readerships or of their pay packets, with the old saying (now reaching the status of cliché) that sport is the ‘toy department of the news media’ still readily to hand as a dismissal of the worth of what sports journalists do.  This reluctance to take sports journalism seriously produces the paradoxical outcome that sports newspaper writers are much read but little admired.', placeholder='분석할 텍스트를 입력하세요.')
-    with st.container():
-        st.write('-'*70)
-        st.write('**지문**')
-        st.write(text)
-        st.write('-'*70)
-
-    words = text.lower().split()
-    word_themes = word_data[word_data['영어단어'].isin(words)]['테마'].value_counts()
-    dominant_theme = word_themes.idxmax() if not word_themes.empty else "No dominant theme"
-    st.write(f'Dominant theme in the text:{dominant_theme}')
-
-    col1, col2, col3 = st.columns([2,6,2])
-    with col2:
-        plt.figure(figsize=(4,4))
-        plt.pie(word_themes, labels=word_themes.index, autopct='%1.1f%%', startangle=140, textprops={'fontsize': 10})
-        plt.axis('equal')
-        st.pyplot(plt)
-
-    for theme in word_themes.index:
-        theme_words = word_data[word_data['테마'] == theme]
-        theme_words = theme_words[theme_words['영어단어'].isin(words)]
-        st.write("-" * 30)
-        st.write(f"**Theme: {theme}**")
-        for _, row in theme_words.iterrows():
-            meanings = ', '.join(
-                [str(meaning) for meaning in [row['의미1'], row.get('의미2'), row.get('의미3')] if pd.notna(meaning)])
-            st.write(f"**{row['영어단어']}**: {meanings}")
-
 def func_showWords(wordId):
     if wordId in word_data['번호'].values:
         word_row = word_data.loc[word_data['번호'] == wordId].iloc[0]
@@ -305,6 +228,9 @@ def page_home2():
             st.experimental_rerun()
         if st.button("성적 분석"):
             st.session_state.page = 'Result'
+            st.experimental_rerun()
+        if st.button("북마크"):
+            st.session_state.page = 'Bookmark'
             st.experimental_rerun()
 
 def page_bookmark():
