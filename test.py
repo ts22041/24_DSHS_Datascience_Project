@@ -513,7 +513,7 @@ def page_result():
             result = file.drop(columns=['Unnamed: 0'])
             st.write(result)
         with col2:
-            st.write(f'{name.split('-')[0]}년 {name.split('-')[1]}월 {name.split('-')[2][:2]}일 응시')
+            st.write(f"{name.split('-')[0]}년 {name.split('-')[1]}월 {name.split('-')[2][:2]}일 응시")
             st.write(f'**{len(file)}문항 테스트 응시 결과**')
             col1, col2, col3 = st.columns([1.5,7,1.5])
             with col2:
