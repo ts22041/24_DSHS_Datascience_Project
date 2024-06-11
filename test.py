@@ -409,8 +409,17 @@ def page_learn():
 
 def page_day():
     st.title(f'**단어 학습 Day {st.session_state.learnPageRequest}**')
-    func_showWords(st.session_state.dayPageRequest)
-    col1, col2, col3 = st.columns([3.75, 5.25, 2])
+    current_word_index = st.session_state.dayPageRequest - (
+                st.session_state.learnPageRequest - 1) * st.session_state.dailyamount
+    progress = current_word_index / st.session_state.dailyamount
+    progress_bar_html = f"""
+        <div style="width: 100%; background-color: lightgray; border-radius: 5px;">
+            <div style="width: {progress * 100}%; background-color: orange; height: 15px; border-radius: 5px;"></div>
+        </div>
+        """
+    st.markdown(progress_bar_html, unsafe_allow_html=True)
+    st.write('')
+    col1, col2, col3 = st.columns([4.3, 5.3, 1.1])
     with col1:
         if st.button('이전'):
             st.session_state.dayPageRequest -= 1
@@ -430,6 +439,8 @@ def page_day():
                 st.session_state.learnPageRequest += 1
                 st.session_state.dayPageRequest = (st.session_state.learnPageRequest - 1) * st.session_state.dailyamount + 1
             st.experimental_rerun()
+
+    func_showWords(st.session_state.dayPageRequest)
 
     if st.sidebar.button("학습 리스트"):
         st.session_state.page = 'Learn'
