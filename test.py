@@ -544,7 +544,7 @@ def page_result():
             col1, col2, col3 = st.columns([1.5,7,1.5])
             with col2:
                 result = result['correct'].value_counts()
-                colors = ['navy', 'gray']
+                colors = ['orange', 'gray']
                 fig1, ax1 = plt.subplots()
                 ax1.pie(result, colors=colors, startangle=90)
                 centre_circle = plt.Circle((0, 0), 0.75, fc='white')
