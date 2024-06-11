@@ -12,14 +12,8 @@ word_data = pd.DataFrame(data)
 data = pd.read_csv('2023_kice_eng_text_sample.csv')
 kice_data = pd.DataFrame(data)
 
-
-font_path = "fonts/MalgunGothic.ttf"
-font_prop = FontProperties(fname=font_path)
-
-plt.rcParams['font.family'] = font_prop.get_name()
-plt.rcParams['axes.unicode_minus'] = False
-
-sns.set(font=font_prop.get_name(), rc={"axes.unicode_minus": False}, style='white')
+plt.rc("font", family = "Malgun Gothic")
+sns.set(font="Malgun Gothic", rc={"axes.unicode_minus":False}, style='white')
 
 def draw_figure1():
     pos_map = {
