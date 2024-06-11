@@ -171,6 +171,7 @@ def func_createQuestions(num_questions):
 
 def page_home():
     st.title("영어 학습 플랫폼")
+    st.write('**PC환경에서 가장 쾌적하게 사용할 수 있습니다.**')
     name = st.text_input("Enter your name (10자 이내):", max_chars=10, placeholder="user name")
     if st.button("Submit"):
         st.session_state.username = name
@@ -179,6 +180,7 @@ def page_home():
 
 def page_selectLevel():
     st.title("영어 학습 플랫폼")
+    st.write('**PC환경에서 가장 쾌적하게 사용할 수 있습니다.**')
     st.write("Choose your level:")
     level_options = ["Beginner", "Intermediate", "Advanced"]
     level = st.radio("", level_options)
@@ -190,6 +192,7 @@ def page_selectLevel():
 
 def page_selectDailyAmount():
     st.title("영어 학습 플랫폼")
+    st.write('**PC환경에서 가장 쾌적하게 사용할 수 있습니다.**')
     st.write("Choose your daily amount:")
     amount_options = ["25개 (64일 완성)", "40개 (40일 완성)", "50개 (32일 완성)"]
     option = st.radio("", amount_options, key="daily_words")
