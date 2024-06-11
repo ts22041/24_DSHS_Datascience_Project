@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import random
+pip install seaborn
 import seaborn as sns
 import matplotlib.pyplot as plt
 import datetime
