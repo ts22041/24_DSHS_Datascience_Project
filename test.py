@@ -306,12 +306,6 @@ def page_home2():
         if st.button("성적 분석"):
             st.session_state.page = 'Result'
             st.experimental_rerun()
-        if st.button("지문 분석(beta)"):
-            st.session_state.page = 'TextAnalysis'
-            st.experimental_rerun()
-        if st.button("단어장 설명"):
-            st.session_state.page = 'Info'
-            st.experimental_rerun()
 
 def page_bookmark():
     st.title("북마크")
