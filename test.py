@@ -46,9 +46,9 @@ def draw_figure2():
     plt.figure(figsize=(4, 4))
     st.write('**테마별 단어 분포**')
     sns.barplot(x=theme_counts.index, y=theme_counts.values/16, palette=sns.color_palette("plasma")[::-1])
-    plt.xlabel('테마 종류')
-    plt.ylabel('단어 분포[%]')
-    plt.xticks([], [])
+    plt.xlabel('테마 종류', fontproperties=font_prop)
+    plt.ylabel('단어 분포[%]', fontproperties=font_prop)
+    plt.xticks([], [], fontproperties=font_prop)
     st.pyplot(plt)
 
 def draw_figure3():
@@ -58,9 +58,9 @@ def draw_figure3():
     plt.figure(figsize=(4, 4))
     st.write('**기타 테마별 단어 수**')
     sns.barplot(x=theme_counts.index, y=theme_counts.values, palette=sns.color_palette("plasma")[::-1][1:])
-    plt.xlabel('테마 종류(기타)')
-    plt.ylabel('단어 수')
-    plt.xticks(rotation=90)
+    plt.xlabel('테마 종류(기타)', fontproperties=font_prop)
+    plt.ylabel('단어 수', fontproperties=font_prop)
+    plt.xticks(rotation=90, fontproperties=font_prop)
     st.pyplot(plt)
 
 def draw_figure4():
@@ -68,9 +68,9 @@ def draw_figure4():
     plt.figure(figsize=(4, 4))
     st.write('**2024학년도 수능 시험지 내 테마 분포**')
     sns.barplot(x=word_themes.index, y=word_themes.values, palette=sns.color_palette("plasma")[::-1])
-    plt.xlabel('테마 종류')
-    plt.ylabel('단어 수')
-    plt.xticks(rotation=90)
+    plt.xlabel('테마 종류', fontproperties=font_prop)
+    plt.ylabel('단어 수', fontproperties=font_prop)
+    plt.xticks(rotation=90, fontproperties=font_prop)
     st.pyplot(plt)
 
 def draw_figure5():
@@ -85,7 +85,7 @@ def draw_figure5():
     st.write('**(일상과 여가 생활 테마 제외)**')
     plt.figure(figsize=(4, 4))
     plt.pie(theme_counts, labels=theme_counts.index, autopct='%1.1f%%', startangle=140, textprops={'fontsize': 10})
-    plt.axis('equal')
+    plt.axis('equal', fontproperties=font_prop)
     st.pyplot(plt)
     st.write('')
 
