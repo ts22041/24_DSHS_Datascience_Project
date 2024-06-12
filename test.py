@@ -35,7 +35,7 @@ def draw_figure1():
     pos_counts = word_data['품사1'].map(pos_map).value_counts()
     plt.figure(figsize=(4, 4))
     st.write('**품사별 단어 수**')
-    sns.barplot(x=pos_counts.index, y=pos_counts.values, palette=sns.color_palette("plasma")[::-1])
+    sns.barplot(x=pos_counts.index, y=pos_counts.values, fontproperties=font_prop, palette=sns.color_palette("plasma")[::-1])
     plt.xlabel('품사', fontproperties=font_prop)
     plt.ylabel('단어 수', fontproperties=font_prop)
     plt.xticks(rotation=45)
