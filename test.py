@@ -172,32 +172,7 @@ def func_showWords(wordId):
                 month = int(kice_data.loc[kice_data['key'] == i + 1].iloc[0]['모의고사'])
                 num = kice_data.loc[kice_data['key'] == i + 1].iloc[0]['문항번호']
                 sen = kice_data.loc[kice_data['key'] == i + 1].iloc[0]['문장']
-                st.write(f'**{year}.{month}.{num}번 문항** {sen}')
-        st.write('_' * 50)
-
-    else:
-        st.write("ID not found.")
-
-def func_createQuestions(num_questions):
-    questions = []
-    data = word_data
-    data = data.dropna(subset=['의미1'])
-    meanings = list(data['의미1'])
-
-    for _ in range(num_questions):
-        correct_row = data.sample(1)
-        correct_word = correct_row['영어단어'].values[0]
-        correct_meaning = correct_row['의미1'].values[0].split(",")[0].strip()
-
-        wrong_meanings = random.sample([m for m in meanings if m != correct_meaning], 3)
-        choices = random.sample([correct_meaning] + wrong_meanings, k=4)
-
-        questions.append({'word': correct_word, 'choices': choices, 'correct_answer': correct_meaning})
-
-    return questions
-
-def page_home():
-    st.title("영어 학습 플랫폼")
+       어")
     name = st.text_input("Enter your name (10자 이내):", max_chars=10, placeholder="user name")
     if st.button("Submit"):
         st.session_state.username = name
