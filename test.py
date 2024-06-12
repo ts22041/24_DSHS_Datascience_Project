@@ -17,7 +17,7 @@ f = open(filename, encoding='utf-8')
 text = f.read()
 suneung_text = text.lower().split()
 
-font_path = 'fonts/NanumGothic.ttf'
+font_path = 'path/to/NanumGothic.ttf'
 font_prop = fm.FontProperties(fname=font_path)
 plt.rc('font', family=font_prop.get_name())
 sns.set(font=font_prop.get_name(), rc={"axes.unicode_minus": False}, style='white')
@@ -36,8 +36,8 @@ def draw_figure1():
     plt.figure(figsize=(4, 4))
     st.write('**품사별 단어 수**')
     sns.barplot(x=pos_counts.index, y=pos_counts.values, palette=sns.color_palette("plasma")[::-1])
-    plt.xlabel('품사')
-    plt.ylabel('단어 수')
+    plt.xlabel('품사', fontproperties=font_prop)
+    plt.ylabel('단어 수', fontproperties=font_prop)
     plt.xticks(rotation=45)
     st.pyplot(plt)
 
