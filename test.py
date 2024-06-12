@@ -4,6 +4,7 @@ import random
 import seaborn as sns
 import matplotlib.pyplot as plt
 import datetime
+import matplotlib.font_manager as fm
 
 data = pd.read_csv('word_list_with_examples.csv',  delimiter=';', encoding='utf-8')
 word_data = pd.DataFrame(data)
@@ -16,8 +17,11 @@ f = open(filename, encoding='utf-8')
 text = f.read()
 suneung_text = text.lower().split()
 
-plt.rc("font", family = "Malgun Gothic")
-sns.set(font="Malgun Gothic", rc={"axes.unicode_minus":False}, style='white')
+font_path = 'fonts/NanumGothic.ttf'
+font_prop = fm.FontProperties(fname=font_path)
+plt.rc('font', family=font_prop.get_name())
+sns.set(font=font_prop.get_name(), rc={"axes.unicode_minus": False}, style='white')
+
 
 def draw_figure1():
     pos_map = {
