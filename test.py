@@ -17,7 +17,7 @@ f = open(filename, encoding='utf-8')
 text = f.read()
 suneung_text = text.lower().split()
 
-font_path = 'path/to/NanumGothic.ttf'
+font_path = 'fonts/NanumGothic.ttf'
 font_prop = fm.FontProperties(fname=font_path)
 plt.rc('font', family=font_prop.get_name())
 sns.set(font=font_prop.get_name(), rc={"axes.unicode_minus": False}, style='white')
