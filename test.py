@@ -38,7 +38,7 @@ def draw_figure1():
     sns.barplot(x=pos_counts.index, y=pos_counts.values, palette=sns.color_palette("plasma")[::-1])
     plt.xlabel('품사', fontproperties=font_prop)
     plt.ylabel('단어 수', fontproperties=font_prop)
-    plt.xticks(rotation=45)
+    plt.xticks(rotation=45, fontproperties=font_prop)
     st.pyplot(plt)
 
 def draw_figure2():
