@@ -1,3 +1,4 @@
+import numpy as np
 import pyrebase
 import pickle
 import os
@@ -84,7 +85,6 @@ class DB:
 
     def delete_result(self, result_key):
         self.results_ref.child(result_key).remove()
-
 
 class Auth:
 
@@ -767,16 +767,19 @@ def page_day():
     st.write('')
     col1, col2, col3 = st.columns([4.3, 5.3, 1.1])
     with col1:
-        if st.button('이전'):
-            st.session_state.dayPageRequest -= 1
-            if st.session_state.dayPageRequest < (st.session_state.learnPageRequest - 1) * st.session_state.dailyamount + 1:
-                st.session_state.learnPageRequest -= 1
-                st.session_state.dayPageRequest = (st.session_state.learnPageRequest - 1) * st.session_state.dailyamount + st.session_state.dailyamount
-            st.experimental_rerun()
+        if st.session_state.learnPageRequest > 1:
+            if st.button('이전'):
+                st.session_state.dayPageRequest -= 1
+                if st.session_state.dayPageRequest < (
+                        st.session_state.learnPageRequest - 1) * st.session_state.dailyamount + 1:
+                    st.session_state.learnPageRequest -= 1
+                    st.session_state.dayPageRequest = (st.session_state.learnPageRequest - 1) * st.session_state.dailyamount + st.session_state.dailyamount
+                st.experimental_rerun()
     with col2:
         if st.button('북마크 추가'):
             st.session_state.bookmarks.add(st.session_state.dayPageRequest)
-            func_saveUserInfo(user_id=st.session_state.userId, info_type='bookmarks', data=st.session_state.bookmarks)
+            if st.session_state.isLogin == True:
+                func_saveUserInfo(user_id=st.session_state.userId, info_type='bookmarks', data=st.session_state.bookmarks)
             st.experimental_rerun()
     with col3:
         if st.button('다음'):
@@ -903,7 +906,7 @@ def page_result():
             col1, col2, col3 = st.columns([1.5,7,1.5])
             with col2:
                 result = result['correct'].value_counts()
-                colors = ['navy', 'gray']
+                colors = ['orange', 'gray']
                 fig1, ax1 = plt.subplots()
                 ax1.pie(result, colors=colors, startangle=90)
                 centre_circle = plt.Circle((0, 0), 0.75, fc='white')
@@ -931,6 +934,8 @@ def page_result():
         st.experimental_rerun()
 
 def page_analysis():
+    if st.session_state.isLogin == True:
+        func_getUserInfo(st.session_state.userId)
     st.title("틀린 단어 학습")
     incorrect_words = st.session_state.resultPageRequest
     for word in incorrect_words:
@@ -981,7 +986,11 @@ def page_analysis():
             st.write('_' * 50)
 
         if st.button('북마크 추가', key=f'choice{word}'):
+            wordId = wordId.astype(np.string_)
+            wordId = int(wordId)
             st.session_state.bookmarks.add(wordId)
+            if st.session_state.isLogin == True:
+                func_saveUserInfo(user_id=st.session_state.userId, info_type='bookmarks',data=st.session_state.bookmarks)
             st.experimental_rerun()
 
     if st.sidebar.button("Home"):
