@@ -3,3 +3,4 @@ Pyrebase4
 pandas
 seaborn
 matplotlib
+streamlit_option_menu
