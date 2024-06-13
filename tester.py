@@ -59,39 +59,41 @@ firebase = pyrebase.initialize_app(firebaseConfig)
 auth = firebase.auth()
 
 class DB:
-    @staticmethod
-    def connect_db():
-        try:
-            DB.user_infos = db.reference('/user_infos')
-            DB.results = db.reference('/results')
-        except Exception as e:
-            print(f"Failed to connect to database: {e}")
+    def __init__(self, user_id):
+        self.user_id = user_id
+        self.user_info_ref = db.reference(f'/user_infos/{self.user_id}')
+        self.results_ref = db.reference(f'/results/{self.user_id}')
 
-    @staticmethod
-    def get_user_info(user_id):
-        return DB.user_infos.child(user_id).get()
+    def get_user_info(self):
+        return self.user_info_ref.get()
 
-    @staticmethod
-    def save_user_info(user_id, user_data):
-        DB.user_infos.child(user_id).set(user_data)
+    def save_user_info(self, user_data):
+        self.user_info_ref.set(user_data)
 
-    @staticmethod
-    def get_results(user_id):
-        return DB.results.child(user_id).get()
+    def update_user_info(self, updates):
+        self.user_info_ref.update(updates)
 
-    @staticmethod
-    def save_result(user_id, result_data):
-        DB.results.child(user_id).push(result_data)
+    def delete_user_info(self):
+        self.user_info_ref.remove()
+
+    def get_results(self):
+        return self.results_ref.get()
+
+    def save_result(self, result_data):
+        self.results_ref.push(result_data)
+
+    def delete_result(self, result_key):
+        self.results_ref.child(result_key).remove()
+
 
 class Auth:
 
     @staticmethod
-    def create_user(name, email, password):
+    def create_user(email, password):
         try:
             firebase_auth.create_user(
                 email=email,
-                password=password,
-                display_name=name
+                password=password
             )
             return None
         except Exception as e:
@@ -109,9 +111,10 @@ class Auth:
     def login_user(email, password):
         try:
             user = auth.sign_in_with_email_and_password(email, password)
-            return user['idToken']
-        except:
-            return None
+            return user['idToken'], user['localId']
+        except Exception as e:
+            print(f"Login failed: {e}")
+            return None, None
 
     @staticmethod
     def store_session(token):
@@ -150,9 +153,6 @@ class Auth:
         firebase_auth.revoke_refresh_tokens(Auth.authenticate_token(token))
         if os.path.exists('token.pickle'):
             os.remove('token.pickle')
-
-db = DB()
-DB.connect_db()
 
 def draw_figure1():
     pos_map = {
@@ -344,8 +344,8 @@ def func_withoutLoginNotice():
                 if st.form_submit_button('Login'):
                     st.session_state.username = 'DSHS'
                     st.session_state.dailyamount = 40
-                    st.session_state.userprogress = 1
                     st.session_state.sessionnumber = 40
+                    st.session_state.level = None
                     st.session_state.bookmarks = set()
                     st.session_state.learnPageRequest = 0
                     st.session_state.dayPageRequest = 0
@@ -357,6 +357,27 @@ def func_withoutLoginNotice():
                     st.session_state.completed_days = []
                     st.session_state.page = 'Login'
                     st.experimental_rerun()
+
+def func_getUserInfo(user_id):
+    db_instance = DB(user_id)
+    user_info = db_instance.get_user_info()
+    if user_info:
+        st.session_state.username = user_info.get('username')
+        st.session_state.level = user_info.get('level')
+        st.session_state.dailyamount = user_info.get('dailyamount')
+        st.session_state.sessionnumber = user_info.get('sessionnumber')
+        st.session_state.bookmarks = set(user_info.get('bookmarks', []))
+        st.session_state.completed_days = user_info.get('completed_days')
+    else:
+        st.session_state.page = 'InputUsername'
+        st.experimental_rerun()
+
+def func_saveUserInfo(user_id, info_type, data):
+    db_instance = DB(user_id)
+    if isinstance(data, set):
+        data = list(data)
+    db_instance.update_user_info({info_type: data})
+    st.session_state[info_type] = data
 
 def page_login():
     st.title('The Day Is Your Day VOCA1600')
@@ -370,10 +391,12 @@ def page_login():
         btn_login = st.form_submit_button('로그인')
 
         if btn_login:
-            idToken = Auth.login_user(user_email, user_pw)
-            if idToken is not None:
+            idToken, user_id = Auth.login_user(user_email, user_pw)
+            if idToken is not None and user_id is not None:
                 Auth.store_session(idToken)
                 st.session_state.isLogin = True
+                st.session_state.userId = user_id
+                func_getUserInfo(user_id)
                 st.session_state.page = 'Home'
                 st.experimental_rerun()
             else:
@@ -402,7 +425,6 @@ def page_register():
     st.subheader('사용자 등록')
     with st.form(key='user_ref_form'):
 
-        user_name = st.text_input('이름')
         user_email = st.text_input('이메일')
         user_pw = st.text_input('비밀번호', type='password')
 
@@ -410,16 +432,17 @@ def page_register():
 
         if btn_user_reg:
             res = None
-            res = Auth.create_user(user_name, user_email, user_pw)
+            res = Auth.create_user(user_email, user_pw)
             if res is None:
-                st.info('사용자가 등록되었습니다. 사용자 정보 등록을 진행해 주세요.')
+                idToken, user_id = Auth.login_user(user_email, user_pw)
+                if idToken is not None:
+                    Auth.store_session(idToken)
+                    st.session_state.userId = user_id
+                    st.session_state.isLogin = True
+                st.session_state.page = 'InputUsername'
+                st.experimental_rerun()
             else:
                 st.error(res)
-
-def page_registerUserInfo():
-    if st.button('Summit'):
-        st.session_state.page = 'Home'
-        st.experimental_rerun()
 
 def page_resetPassword():
     if st.button('Login'):
@@ -439,7 +462,8 @@ def page_resetPassword():
 
 def page_home():
     func_withoutLoginNotice()
-
+    if st.session_state.isLogin == True:
+        func_getUserInfo(st.session_state.userId)
     today = datetime.datetime.now().strftime('%Y-%m-%d (%A)')
     st.write(f"Today: {today}")
     st.subheader(f"Hi, {st.session_state.username}!")
@@ -551,10 +575,11 @@ def page_home():
         btn_logout = st.button('로그아웃')
         if btn_logout:
             Auth.revoke_token(Auth.load_token())
+            st.session_state.userId = None
             st.session_state.username = 'DSHS'
             st.session_state.dailyamount = 40
-            st.session_state.userprogress = 1
             st.session_state.sessionnumber = 40
+            st.session_state.level = None
             st.session_state.bookmarks = set()
             st.session_state.learnPageRequest = 0
             st.session_state.dayPageRequest = 0
@@ -570,12 +595,13 @@ def page_home():
 
 def page_inputUsername():
     func_withoutLoginNotice()
-
     st.title("The Day Is Your Day VOCA 1600")
     st.write("**PC환경에서 가장 쾌적하게 사용할 수 있습니다.**")
     name = st.text_input("Enter your name (10자 이내):", max_chars=10, placeholder="user name")
     if st.button("Submit"):
         st.session_state.username = name
+        if st.session_state.isLogin == True:
+            func_saveUserInfo(user_id=st.session_state.userId, info_type='username', data=name)
         st.session_state.page = 'SelectLevel'
         st.experimental_rerun()
 
@@ -590,6 +616,8 @@ def page_selectLevel():
     st.write('고3 영어 기준, 1등급 (Advanced), 1~2등급 (Intermediate), 3등급 이하 (Beginner)이 적정합니다')
     if st.button("Submit"):
         st.session_state.level = level
+        if st.session_state.isLogin == True:
+            func_saveUserInfo(user_id=st.session_state.userId, info_type='level', data=level)
         st.session_state.page = 'SelectDailyAmount'
         st.experimental_rerun()
 
@@ -612,11 +640,19 @@ def page_selectDailyAmount():
             st.session_state.dailyamount = 50
             st.session_state.sessionnumber = 32
         st.session_state.completed_days = [False] * st.session_state.sessionnumber
+        if st.session_state.isLogin == True:
+            func_saveUserInfo(user_id=st.session_state.userId, info_type='dailyamount', data=st.session_state.dailyamount)
+            func_saveUserInfo(user_id=st.session_state.userId, info_type='sessionnumber', data=st.session_state.sessionnumber)
+            func_saveUserInfo(user_id=st.session_state.userId, info_type='completed_days', data=st.session_state.completed_days)
+            func_saveUserInfo(user_id=st.session_state.userId, info_type='bookmarks', data=st.session_state.bookmarks)
         st.session_state.page = 'Home'
         st.experimental_rerun()
 
 def page_bookmark():
     func_withoutLoginNotice()
+
+    if st.session_state.isLogin == True:
+        func_getUserInfo(st.session_state.userId)
 
     st.title("북마크")
     st.write("**북마크한 단어를 확인해 보세요.**")
@@ -668,6 +704,7 @@ def page_bookmark():
 
         if st.button('북마크 제거', key=f'choice{word}'):
             st.session_state.bookmarks.remove(wordId)
+            func_saveUserInfo(user_id=st.session_state.userId, info_type='bookmarks', data=st.session_state.bookmarks)
             st.experimental_rerun()
 
     if st.sidebar.button("Home"):
@@ -676,6 +713,9 @@ def page_bookmark():
 
 def page_learn():
     func_withoutLoginNotice()
+
+    if st.session_state.isLogin == True:
+        func_getUserInfo(st.session_state.userId)
 
     st.title("단어 학습")
     st.write(f"**하루에 {st.session_state.dailyamount}단어씩 학습합니다.**")
@@ -710,6 +750,10 @@ def page_learn():
         st.experimental_rerun()
 
 def page_day():
+
+    if st.session_state.isLogin == True:
+        func_getUserInfo(st.session_state.userId)
+
     st.title(f'**단어 학습 Day {st.session_state.learnPageRequest}**')
     current_word_index = st.session_state.dayPageRequest - (
                 st.session_state.learnPageRequest - 1) * st.session_state.dailyamount
@@ -732,6 +776,7 @@ def page_day():
     with col2:
         if st.button('북마크 추가'):
             st.session_state.bookmarks.add(st.session_state.dayPageRequest)
+            func_saveUserInfo(user_id=st.session_state.userId, info_type='bookmarks', data=st.session_state.bookmarks)
             st.experimental_rerun()
     with col3:
         if st.button('다음'):
@@ -740,6 +785,8 @@ def page_day():
                 st.session_state.completed_days[st.session_state.learnPageRequest - 1] = True
                 st.session_state.learnPageRequest += 1
                 st.session_state.dayPageRequest = (st.session_state.learnPageRequest - 1) * st.session_state.dailyamount + 1
+                if st.session_state.isLogin == True:
+                    func_saveUserInfo(user_id=st.session_state.userId, info_type='completed_days', data=st.session_state.completed_days)
             st.experimental_rerun()
 
     func_showWords(st.session_state.dayPageRequest)
@@ -1039,17 +1086,26 @@ def page_myPage():
         st.session_state.page = 'Home'
         st.experimental_rerun()
 
-
-
-
 if 'isLogin' not in st.session_state:
-    st.session_state.isLogin = False
+    loaded_token = Auth.load_token()
+    if loaded_token and Auth.authenticate_token(loaded_token):
+        st.session_state.isLogin = True
+        st.session_state.userId = Auth.authenticate_token(loaded_token)
+        st.session_state.page = 'Home'
+    else:
+        st.session_state.isLogin = False
+        st.session_state.page = 'Login'
+
+if 'userId' not in st.session_state:
+    st.session_state.userId = None
 if 'username' not in st.session_state:
     st.session_state.username = 'DSHS'
 if 'dailyamount' not in st.session_state:
     st.session_state.dailyamount = 40
 if 'sessionnumber' not in st.session_state:
     st.session_state.sessionnumber = 40
+if 'sessionnumber' not in st.session_state:
+    st.session_state.level = None
 if 'bookmarks' not in st.session_state:
     st.session_state.bookmarks = set()
 if 'learnPageRequest' not in st.session_state:
@@ -1069,6 +1125,11 @@ if 'resultPageRequest' not in st.session_state:
 if 'completed_days' not in st.session_state:
     st.session_state.completed_days = []
 
+if Auth.authenticate_token(Auth.load_token()):
+    st.session_state['login'] = True
+else:
+    st.session_state['login'] = False
+
 if 'page' not in st.session_state:
     st.session_state.page = 'Login'
 
@@ -1076,8 +1137,6 @@ if st.session_state.page == 'Login':
     page_login()
 elif st.session_state.page == 'Register':
     page_register()
-elif st.session_state.page == 'RegisterUserInfo':
-    page_registerUserInfo()
 elif st.session_state.page == 'Home':
     page_home()
 elif st.session_state.page == 'ResetPassword':
