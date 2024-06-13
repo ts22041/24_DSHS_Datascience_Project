@@ -1,3 +1,5 @@
+firebase_admin
+Pyrebase4
 pandas
 seaborn
 matplotlib
