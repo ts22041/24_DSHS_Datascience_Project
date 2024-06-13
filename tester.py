@@ -15,6 +15,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import datetime
 import matplotlib.font_manager as fm
+from streamlit_option_menu import option_menu
 
 @st.cache_data
 def get_data():
@@ -379,6 +380,50 @@ def func_saveUserInfo(user_id, info_type, data):
     db_instance.update_user_info({info_type: data})
     st.session_state[info_type] = data
 
+def func_sidebar(p):
+    with st.sidebar:
+        if st.session_state.isLogin:
+            options = ['Home', 'My Page', '단어 학습', '테스트 응시', '성적 분석', '지문 분석(beta)', '단어장 설명']
+            icons = ['house', 'archive', 'journal-text', 'file-earmark-text','clipboard-data', 'text-left', 'info-circle']
+        else:
+            options = ['Home', '단어 학습', '테스트 응시(beta)', '단어장 설명']
+            icons = ['house', 'journal-text', 'file-earmark-text', 'info-circle']
+
+        choice = option_menu("TDIYD VOCA1600", options=options, icons=icons,
+                             menu_icon="app-indicator", default_index=p,
+                             styles={
+                                 "container": {"padding": "4!important", "background-color": "#fafafa"},
+                                 "icon": {"color": "black", "font-size": "25px"},
+                                 "nav-link": {"font-size": "16px", "text-align": "left", "margin": "0px",
+                                              "--hover-color": "#fafafa"},
+                                 "nav-link-selected": {"background-color": "#FFA500"},
+                             }
+                             )
+        if choice == "Home" and st.session_state.page != 'Home':
+            st.session_state.page = 'Home'
+            st.experimental_rerun()
+        elif choice == 'My Page' and st.session_state.page != 'MyPage':
+            st.session_state.page = 'MyPage'
+            st.experimental_rerun()
+        elif choice == "단어 학습" and st.session_state.page != 'Learn':
+            st.session_state.page = 'Learn'
+            st.experimental_rerun()
+        elif choice == "테스트 응시" and st.session_state.page != 'Test':
+            st.session_state.page = 'Test'
+            st.experimental_rerun()
+        elif choice == "테스트 응시(beta)" and st.session_state.page != 'TestWithoutLogin':
+            st.session_state.page = 'TestWithoutLogin'
+            st.experimental_rerun()
+        elif choice == '성적 분석' and st.session_state.page != 'Result':
+            st.session_state.page = 'Result'
+            st.experimental_rerun()
+        elif choice == '지문 분석(beta)' and st.session_state.page != 'TextAnalysis':
+            st.session_state.page = 'TextAnalysis'
+            st.experimental_rerun()
+        elif choice == "단어장 설명" and st.session_state.page != 'Info':
+            st.session_state.page = 'Info'
+            st.experimental_rerun()
+
 def page_login():
     st.title('The Day Is Your Day VOCA1600')
     st.write('')
@@ -462,12 +507,14 @@ def page_resetPassword():
 
 def page_home():
     func_withoutLoginNotice()
+    func_sidebar(0)
     if st.session_state.isLogin == True:
         func_getUserInfo(st.session_state.userId)
-    today = datetime.datetime.now().strftime('%Y-%m-%d (%A)')
-    st.write(f"Today: {today}")
+        today = datetime.datetime.now().strftime('%Y-%m-%d (%A)')
+        st.write(f"Today: {today}")
     st.subheader(f"Hi, {st.session_state.username}!")
-    st.header('단어 학습 시작하기')
+    if st.session_state.isLogin:
+        st.header('단어 학습 시작하기')
     st.markdown(f"""
             <div style="color: gray; font-weight: bold; font-size: 25px;">
                 최근 학습 진도
@@ -533,43 +580,6 @@ def page_home():
                 if st.button('→'):
                     st.session_state.page = 'Bookmark'
                     st.experimental_rerun()
-
-    if st.session_state.isLogin == False:
-
-        with st.sidebar:
-            st.title("TDIYD VOCA1600")
-            if st.button("단어 학습"):
-                st.session_state.page = 'Learn'
-                st.experimental_rerun()
-            if st.button("테스트 응시(beta)"):
-                st.session_state.page = 'TestWithoutLogin'
-                st.experimental_rerun()
-            if st.button("단어장 설명"):
-                st.session_state.page = 'Info'
-                st.experimental_rerun()
-
-    if st.session_state.isLogin == True:
-
-        with st.sidebar:
-            st.title("TDIYD VOCA1600")
-            if st.button("My Page"):
-                st.session_state.page = 'MyPage'
-                st.experimental_rerun()
-            if st.button("단어 학습"):
-                st.session_state.page = 'Learn'
-                st.experimental_rerun()
-            if st.button("테스트 응시"):
-                st.session_state.page = 'Test'
-                st.experimental_rerun()
-            if st.button("성적 분석"):
-                st.session_state.page = 'Result'
-                st.experimental_rerun()
-            if st.button("지문 분석(beta)"):
-                st.session_state.page = 'TextAnalysis'
-                st.experimental_rerun()
-            if st.button("단어장 설명"):
-                st.session_state.page = 'Info'
-                st.experimental_rerun()
 
         st.write('')
         btn_logout = st.button('로그아웃')
@@ -716,6 +726,9 @@ def page_learn():
 
     if st.session_state.isLogin == True:
         func_getUserInfo(st.session_state.userId)
+        func_sidebar(2)
+    else:
+        func_sidebar(1)
 
     st.title("단어 학습")
     st.write(f"**하루에 {st.session_state.dailyamount}단어씩 학습합니다.**")
@@ -744,10 +757,6 @@ def page_learn():
                     st.write('완료')
                 else:
                     st.write('미완료')
-
-    if st.sidebar.button("Home"):
-        st.session_state.page = 'Home'
-        st.experimental_rerun()
 
 def page_day():
 
@@ -825,17 +834,13 @@ def page_test():
         st.session_state.page = 'Question'
         st.experimental_rerun()
 
-    if st.sidebar.button("Home"):
-        st.session_state.page = 'Home'
-        st.experimental_rerun()
+    func_sidebar(3)
 
 def page_testWithoutLogin():
     func_withoutLoginNotice()
+    func_sidebar(2)
 
     st.write('테스트 응시(beta)')
-    if st.sidebar.button("Home"):
-        st.session_state.page = 'Home'
-        st.experimental_rerun()
 
 def page_question():
     if st.session_state.questionPageRequest == st.session_state.testPageRequest:
@@ -880,9 +885,7 @@ def page_question():
                 st.session_state.questionPageRequest += 1
                 st.experimental_rerun()
 
-    if st.sidebar.button("Home"):
-        st.session_state.page = 'Home'
-        st.experimental_rerun()
+    func_sidebar(3)
 
 def page_result():
     st.title("테스트 응시 결과 분석")
@@ -929,9 +932,7 @@ def page_result():
         st.session_state.page = 'Analysis'
         st.experimental_rerun()
 
-    if st.sidebar.button("Home"):
-        st.session_state.page = 'Home'
-        st.experimental_rerun()
+    func_sidebar(4)
 
 def page_analysis():
     if st.session_state.isLogin == True:
@@ -993,21 +994,22 @@ def page_analysis():
                 func_saveUserInfo(user_id=st.session_state.userId, info_type='bookmarks',data=st.session_state.bookmarks)
             st.experimental_rerun()
 
-    if st.sidebar.button("Home"):
-        st.session_state.page = 'Home'
-        st.experimental_rerun()
+    func_sidebar(4)
 
 def page_textAnalysis():
     st.title("지문 분석(beta)")
     st.write("**지문 분석 기능은 구현했으나, minor한 기능이라 beta로 구분했습니다.**")
     func_textAnalysis()
 
-    if st.sidebar.button("Home"):
-        st.session_state.page = 'Home'
-        st.experimental_rerun()
+    func_sidebar(5)
 
 def page_info():
     func_withoutLoginNotice()
+
+    if st.session_state.isLogin == True:
+        func_sidebar(6)
+    else:
+        func_sidebar(3)
 
     st.title("단어장 정보")
     col1, col2 = st.columns(2)
@@ -1084,16 +1086,15 @@ def page_info():
         with st.container():
             draw_figure5()
 
-
-    if st.sidebar.button("Home"):
-        st.session_state.page = 'Home'
-        st.experimental_rerun()
-
 def page_myPage():
+    if st.session_state.isLogin == True:
+        func_getUserInfo(st.session_state.userId)
+    st.write(st.session_state.userId)
+    st.write(st.session_state.username)
+    st.write(st.session_state.level)
     st.write('mypage')
-    if st.sidebar.button("Home"):
-        st.session_state.page = 'Home'
-        st.experimental_rerun()
+
+    func_sidebar(1)
 
 if 'isLogin' not in st.session_state:
     loaded_token = Auth.load_token()
@@ -1138,6 +1139,7 @@ if Auth.authenticate_token(Auth.load_token()):
     st.session_state['login'] = True
 else:
     st.session_state['login'] = False
+
 
 if 'page' not in st.session_state:
     st.session_state.page = 'Login'
