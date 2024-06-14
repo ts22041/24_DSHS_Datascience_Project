@@ -408,8 +408,8 @@ def func_sidebar(p):
         elif choice == "테스트 응시(beta)" and st.session_state.page != 'TestWithoutLogin' and st.session_state.page != 'Question':
             st.session_state.page = 'TestWithoutLogin'
             st.experimental_rerun()
-        elif choice == '성적 분석' and st.session_state.page != 'DisplayResultFromFiles' and st.session_state.page != 'Analysis':
-            st.session_state.page = 'DisplayResultFromFiles'
+        elif choice == '성적 분석' and st.session_state.page != 'Analysis' and st.session_state.page != 'page_displayResultFromFiles' and st.session_state.page != 'Result':
+            st.session_state.page = 'Analysis'
             st.experimental_rerun()
         elif choice == '지문 분석(beta)' and st.session_state.page != 'TextAnalysis':
             st.session_state.page = 'TextAnalysis'
@@ -950,6 +950,7 @@ def page_question():
                 st.experimental_rerun()
 
 def page_displayResultFromFiles():
+    func_sidebar(4)
     st.title("테스트 응시 결과 분석")
     st.write("**분석할 테스트 결과 파일을 업로드해주세요.**")
     uploaded_files = st.file_uploader("Choose a CSV file", accept_multiple_files=True)
@@ -960,6 +961,11 @@ def page_displayResultFromFiles():
         st.write(name)
         file = pd.read_csv(file)
         file = pd.DataFrame(file)
+        if not hasattr(st.session_state, 'results_saved'):
+            results_df = file.drop(columns=['Unnamed: 0'])
+            db_instance = DB(st.session_state.userId)
+            db_instance.save_result(results_df.to_dict('records'))
+            st.session_state.results_saved = True
         file.index = file.index+1
         col1, col2 = st.columns(2)
         with col1:
@@ -991,12 +997,12 @@ def page_displayResultFromFiles():
 
     if st.button("Submit"):
         st.session_state.resultPageRequest = incorrect_words
-        st.session_state.page = 'Analysis'
+        st.session_state.page = 'Result'
         st.experimental_rerun()
 
     func_sidebar(4)
 
-def page_analysis():
+def page_result():
     if st.session_state.isLogin == True:
         func_getUserInfo(st.session_state.userId)
     func_sidebar(4)
@@ -1056,6 +1062,12 @@ def page_analysis():
             if st.session_state.isLogin == True:
                 func_saveUserInfo(user_id=st.session_state.userId, info_type='bookmarks',data=st.session_state.bookmarks)
             st.experimental_rerun()
+
+def page_analysis():
+    func_sidebar(4)
+    if st.button('파일에서 테스트 결과 업로드'):
+        st.session_state.page == 'DisplayResultFromFiles'
+        st.experimental_rerun()
 
 def page_textAnalysis():
     st.title("지문 분석(beta)")
@@ -1243,6 +1255,8 @@ elif st.session_state.page == 'Bookmark':
     page_bookmark()
 elif st.session_state.page == 'DisplayResultFromFiles':
     page_displayResultFromFiles()
+elif st.session_state.page == 'Result':
+    page_result()
 elif st.session_state.page == 'Analysis':
     page_analysis()
 elif st.session_state.page == 'TextAnalysis':
