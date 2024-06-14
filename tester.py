@@ -125,7 +125,7 @@ class Auth:
 
     @staticmethod
     def load_token(session_id):
-        return st.session_state.get(f'token_{session_id}', None)
+        return st.session_state.get(f'token_{session_id}')
 
     @staticmethod
     def authenticate_token(token):
@@ -144,10 +144,10 @@ class Auth:
             return None
 
     @staticmethod
-    def revoke_token(token):
-        firebase_auth.revoke_refresh_tokens(Auth.authenticate_token(token))
-        if os.path.exists('token.pickle'):
-            os.remove('token.pickle')
+    def revoke_token(session_id):
+        if f'token_{session_id}' in st.session_state:
+            del st.session_state[f'token_{session_id}']
+        st.session_state['isLogin'] = False
 
 def draw_figure1():
     pos_map = {
@@ -583,8 +583,8 @@ def page_home():
     if st.session_state.isLogin:
         btn_logout = st.button('로그아웃')
         if btn_logout:
-            Auth.revoke_token(Auth.load_token(st.session_state.sessionId))
-            st.session_state.sessionId = uuid.uuid4()
+            Auth.revoke_token(Auth.load_token(st.session_state.sessionId), st.session_state.sessionId)
+            st.session_state.sessionId = None
             st.session_state.userId = None
             st.session_state.username = 'DSHS'
             st.session_state.dailyamount = 40
@@ -1122,17 +1122,15 @@ def page_myPage():
 
 
 if 'sessionId' not in st.session_state:
-    st.session_state.sessionId = str(uuid.uuid4())
+    st.session_state['sessionId'] = str(uuid.uuid4())
 
-if 'isLogin' not in st.session_state:
-    loaded_token = Auth.load_token(st.session_state.sessionId)
-    if loaded_token and Auth.authenticate_token(loaded_token):
-        st.session_state.isLogin = True
-        st.session_state.userId = Auth.authenticate_token(loaded_token)
-        st.session_state.page = 'Home'
-    else:
-        st.session_state.isLogin = False
-        st.session_state.page = 'Login'
+loaded_token = Auth.load_token(st.session_state['sessionId'])
+if loaded_token and Auth.authenticate_token(loaded_token):
+    # Set user login state and other details
+    st.session_state['isLogin'] = True
+    st.session_state['userId'] = Auth.authenticate_token(loaded_token)
+else:
+    st.session_state['isLogin'] = False
 
 if 'userId' not in st.session_state:
     st.session_state.userId = None
