@@ -870,7 +870,7 @@ def page_question():
     else:
         func_sidebar(2)
 
-    if st.session_state.questionPageRequest == st.sessi1on_state.testPageRequest:
+    if st.session_state.questionPageRequest == st.session_state.testPageRequest:
         st.title('테스트 결과')
         results_df = pd.DataFrame(st.session_state.testPageResponses)
         if not hasattr(st.session_state, 'results_saved'):
