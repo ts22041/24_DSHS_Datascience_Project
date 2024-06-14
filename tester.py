@@ -1,7 +1,8 @@
 import numpy as np
 import pyrebase
-import pickle
 import os
+
+import uuid
 
 import firebase_admin
 import streamlit as st
@@ -43,9 +44,10 @@ try:
     app = firebase_admin.get_app()
 except ValueError:
     cred = credentials.Certificate("serviceAccount.json")
-    default_app = firebase_admin.initialize_app(cred, {
+    app = firebase_admin.initialize_app(cred, {
         'databaseURL': "https://tdiyd-voca1600-default-rtdb.firebaseio.com/"
     })
+
 
 firebaseConfig = {
     'apiKey': "AIzaSyCW4Hd3Lwt6Xy57FDta3avmB10OjE1c0OA",
@@ -122,11 +124,8 @@ class Auth:
         st.session_state[f'token_{session_id}'] = token
 
     @staticmethod
-    def store_session(token, session_id):
-        try:
-            st.session_state[f'token_{session_id}'] = token
-        except Exception as e:
-            print(f"Error storing the token: {e}")
+    def load_token(session_id):
+        return st.session_state.get(f'token_{session_id}', None)
 
     @staticmethod
     def authenticate_token(token):
@@ -433,7 +432,7 @@ def page_login():
         if btn_login:
             idToken, user_id = Auth.login_user(user_email, user_pw)
             if idToken is not None and user_id is not None:
-                Auth.store_session(idToken)
+                Auth.store_session(idToken, st.session_state.sessionId)
                 st.session_state.isLogin = True
                 st.session_state.userId = user_id
                 func_getUserInfo(user_id)
@@ -584,7 +583,8 @@ def page_home():
     if st.session_state.isLogin:
         btn_logout = st.button('로그아웃')
         if btn_logout:
-            Auth.revoke_token(Auth.load_token())
+            Auth.revoke_token(Auth.load_token(st.session_state.sessionId))
+            st.session_state.sessionId = uuid.uuid4()
             st.session_state.userId = None
             st.session_state.username = 'DSHS'
             st.session_state.dailyamount = 40
@@ -1120,8 +1120,12 @@ def page_myPage():
 
     func_sidebar(1)
 
+
+if 'sessionId' not in st.session_state:
+    st.session_state.sessionId = str(uuid.uuid4())
+
 if 'isLogin' not in st.session_state:
-    loaded_token = Auth.load_token()
+    loaded_token = Auth.load_token(st.session_state.sessionId)
     if loaded_token and Auth.authenticate_token(loaded_token):
         st.session_state.isLogin = True
         st.session_state.userId = Auth.authenticate_token(loaded_token)
@@ -1159,7 +1163,9 @@ if 'resultPageRequest' not in st.session_state:
 if 'completed_days' not in st.session_state:
     st.session_state.completed_days = []
 
-if Auth.authenticate_token(Auth.load_token()):
+
+
+if Auth.authenticate_token(Auth.load_token(st.session_state.sessionId)):
     st.session_state['login'] = True
 else:
     st.session_state['login'] = False
