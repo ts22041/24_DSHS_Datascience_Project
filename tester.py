@@ -405,7 +405,7 @@ def func_sidebar(p):
         elif choice == 'My Page' and st.session_state.page != 'MyPage':
             st.session_state.page = 'MyPage'
             st.experimental_rerun()
-        elif choice == "단어 학습" and st.session_state.page != 'Learn':
+        elif choice == "단어 학습" and st.session_state.page != 'Learn' and st.session_state.page != 'Day':
             st.session_state.page = 'Learn'
             st.experimental_rerun()
         elif choice == "테스트 응시" and st.session_state.page != 'Test' and st.session_state.page != 'Question':
@@ -767,7 +767,7 @@ def page_day():
 
     if st.session_state.isLogin == True:
         func_getUserInfo(st.session_state.userId)
-        
+
     if st.session_state.isLogin == True:
         func_getUserInfo(st.session_state.userId)
         func_sidebar(2)
