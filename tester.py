@@ -521,7 +521,7 @@ def page_home():
             </div>
             """, unsafe_allow_html=True)
     if True in st.session_state.completed_days:
-        completed_count = len(st.session_state.completed_days) - 1 - st.session_state.completed_days[::-1].index(True)
+        completed_count = len(st.session_state.completed_days) - st.session_state.completed_days[::-1].index(True)
     else:
         completed_count = 0
     if st.button(f"Day {completed_count + 1}"):
@@ -533,7 +533,7 @@ def page_home():
     col1, col2 = st.columns(2)
     with col1:
         with st.container():
-            text = f'{completed_count * st.session_state.dailyamount} / 1600 단어'
+            text = f'{sum(st.session_state.completed_days) * st.session_state.dailyamount} / 1600 단어'
             st.markdown(f"""
                     <div style="color: gray; font-weight: bold; font-size: 25px; line-height: 0.7;">
                         학습 진행도
@@ -545,7 +545,7 @@ def page_home():
                     </div>
                     """, unsafe_allow_html=True)
 
-            progress = completed_count / st.session_state.sessionnumber * 100
+            progress = sum(st.session_state.completed_days) / st.session_state.sessionnumber * 100
             sizes = [progress, 100 - progress]
             colors = ['orange', 'gray']
             fig1, ax1 = plt.subplots()
@@ -584,7 +584,9 @@ def page_home():
                     st.session_state.page = 'Bookmark'
                     st.experimental_rerun()
 
-        st.write('')
+    st.write('')
+
+    if st.session_state.isLogin:
         btn_logout = st.button('로그아웃')
         if btn_logout:
             Auth.revoke_token(Auth.load_token())
@@ -767,8 +769,7 @@ def page_day():
         func_getUserInfo(st.session_state.userId)
 
     st.title(f'**단어 학습 Day {st.session_state.learnPageRequest}**')
-    current_word_index = st.session_state.dayPageRequest - (
-                st.session_state.learnPageRequest - 1) * st.session_state.dailyamount
+    current_word_index = st.session_state.dayPageRequest - (st.session_state.learnPageRequest - 1) * st.session_state.dailyamount
     progress = current_word_index / st.session_state.dailyamount
     progress_bar_html = f"""
         <div style="width: 100%; background-color: lightgray; border-radius: 5px;">
@@ -779,11 +780,10 @@ def page_day():
     st.write('')
     col1, col2, col3 = st.columns([4.3, 5.3, 1.1])
     with col1:
-        if st.session_state.learnPageRequest > 1:
+        if current_word_index > 1:
             if st.button('이전'):
                 st.session_state.dayPageRequest -= 1
-                if st.session_state.dayPageRequest < (
-                        st.session_state.learnPageRequest - 1) * st.session_state.dailyamount + 1:
+                if st.session_state.dayPageRequest < (st.session_state.learnPageRequest - 1) * st.session_state.dailyamount + 1:
                     st.session_state.learnPageRequest -= 1
                     st.session_state.dayPageRequest = (st.session_state.learnPageRequest - 1) * st.session_state.dailyamount + st.session_state.dailyamount
                 st.experimental_rerun()
@@ -794,15 +794,14 @@ def page_day():
                 func_saveUserInfo(user_id=st.session_state.userId, info_type='bookmarks', data=st.session_state.bookmarks)
             st.experimental_rerun()
     with col3:
-        if st.button('다음'):
-            st.session_state.dayPageRequest += 1
-            if st.session_state.dayPageRequest > st.session_state.learnPageRequest * st.session_state.dailyamount:
-                st.session_state.completed_days[st.session_state.learnPageRequest - 1] = True
-                st.session_state.learnPageRequest += 1
-                st.session_state.dayPageRequest = (st.session_state.learnPageRequest - 1) * st.session_state.dailyamount + 1
-                if st.session_state.isLogin == True:
-                    func_saveUserInfo(user_id=st.session_state.userId, info_type='completed_days', data=st.session_state.completed_days)
-            st.experimental_rerun()
+        if progress == 1:
+            st.session_state.completed_days[st.session_state.learnPageRequest - 1] = True
+            if st.session_state.isLogin == True:
+                func_saveUserInfo(user_id=st.session_state.userId, info_type='completed_days',data=st.session_state.completed_days)
+        else:
+            if st.button('다음'):
+                st.session_state.dayPageRequest += 1
+                st.experimental_rerun()
 
     func_showWords(st.session_state.dayPageRequest)
 
