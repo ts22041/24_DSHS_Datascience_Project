@@ -870,11 +870,13 @@ def page_question():
     else:
         func_sidebar(2)
 
-    if st.session_state.questionPageRequest == st.session_state.testPageRequest:
+    if st.session_state.questionPageRequest == st.sessi1on_state.testPageRequest:
         st.title('테스트 결과')
         results_df = pd.DataFrame(st.session_state.testPageResponses)
-        db_instance = DB(st.session_state.userId)
-        db_instance.save_result(results_df.to_dict('records'))
+        if not hasattr(st.session_state, 'results_saved'):
+            db_instance = DB(st.session_state.userId)
+            db_instance.save_result(results_df.to_dict('records'))
+            st.session_state.results_saved = True
         st.write("테스트 결과가 성공적으로 저장되었습니다.")
         st.write('_' * 50)
         results_df.index = results_df.index + 1
@@ -997,6 +999,7 @@ def page_displayResultFromFiles():
 def page_analysis():
     if st.session_state.isLogin == True:
         func_getUserInfo(st.session_state.userId)
+    func_sidebar(4)
     st.title("틀린 단어 학습")
     incorrect_words = st.session_state.resultPageRequest
     for word in incorrect_words:
@@ -1053,8 +1056,6 @@ def page_analysis():
             if st.session_state.isLogin == True:
                 func_saveUserInfo(user_id=st.session_state.userId, info_type='bookmarks',data=st.session_state.bookmarks)
             st.experimental_rerun()
-
-    func_sidebar(4)
 
 def page_textAnalysis():
     st.title("지문 분석(beta)")
