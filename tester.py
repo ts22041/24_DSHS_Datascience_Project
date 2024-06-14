@@ -950,7 +950,7 @@ def page_question():
                 st.experimental_rerun()
 
 def page_displayResultFromFiles():
-    #func_sidebar(4)
+    func_sidebar(4)
     st.title("테스트 응시 결과 분석")
     st.write("**분석할 테스트 결과 파일을 업로드해주세요.**")
     uploaded_files = st.file_uploader("Choose a CSV file", accept_multiple_files=True)
