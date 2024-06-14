@@ -411,7 +411,7 @@ def func_sidebar(p):
         elif choice == "테스트 응시" and st.session_state.page != 'Test':
             st.session_state.page = 'Test'
             st.experimental_rerun()
-        elif choice == "테스트 응시(beta)" and st.session_state.page != 'TestWithoutLogin':
+        elif choice == "테스트 응시(beta)" and st.session_state.page != 'TestWithoutLogin' and st.session_state.page != 'Question':
             st.session_state.page = 'TestWithoutLogin'
             st.experimental_rerun()
         elif choice == '성적 분석' and st.session_state.page != 'Result':
@@ -838,9 +838,31 @@ def page_test():
 
 def page_testWithoutLogin():
     func_withoutLoginNotice()
-    func_sidebar(2)
+    st.title("테스트 응시")
+    st.write("**테스트를 통해 모르는 단어를 점검해 보세요**")
+    if st.button('20단어 테스트'):
+        st.session_state.testPageRequest = 20
+        st.session_state.questionPageRequest = 0
+        st.session_state.testQuestions = func_createQuestions(st.session_state.testPageRequest)
+        st.session_state.testPageResponses = []
+        st.session_state.page = 'Question'
+        st.experimental_rerun()
+    if st.button('30단어 테스트'):
+        st.session_state.testPageRequest = 30
+        st.session_state.questionPageRequest = 0
+        st.session_state.testQuestions = func_createQuestions(st.session_state.testPageRequest)
+        st.session_state.testPageResponses = []
+        st.session_state.page = 'Question'
+        st.experimental_rerun()
+    if st.button('50단어 테스트'):
+        st.session_state.testPageRequest = 50
+        st.session_state.questionPageRequest = 0
+        st.session_state.testQuestions = func_createQuestions(st.session_state.testPageRequest)
+        st.session_state.testPageResponses = []
+        st.session_state.page = 'Question'
+        st.experimental_rerun()
 
-    st.write('테스트 응시(beta)')
+    func_sidebar(2)
 
 def page_question():
     if st.session_state.questionPageRequest == st.session_state.testPageRequest:
@@ -885,7 +907,10 @@ def page_question():
                 st.session_state.questionPageRequest += 1
                 st.experimental_rerun()
 
-    func_sidebar(3)
+    if st.session_state.isLogin == True:
+        func_sidebar(3)
+    else:
+        func_sidebar(2)
 
 def page_result():
     st.title("테스트 응시 결과 분석")
