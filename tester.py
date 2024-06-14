@@ -1001,6 +1001,7 @@ def page_displayResultFromFiles():
         st.experimental_rerun()
 
 def page_result():
+    st.session_state.results_saved = False
     if st.session_state.isLogin == True:
         func_getUserInfo(st.session_state.userId)
     func_sidebar(4)
