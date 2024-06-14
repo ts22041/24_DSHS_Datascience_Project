@@ -408,7 +408,7 @@ def func_sidebar(p):
         elif choice == "테스트 응시(beta)" and st.session_state.page != 'TestWithoutLogin' and st.session_state.page != 'Question':
             st.session_state.page = 'TestWithoutLogin'
             st.experimental_rerun()
-        elif choice == '성적 분석' and st.session_state.page != 'Analysis' and st.session_state.page != 'page_displayResultFromFiles' and st.session_state.page != 'Result':
+        elif choice == '성적 분석' and st.session_state.page != 'Analysis' and st.session_state.page != 'DisplayResultFromFiles' and st.session_state.page != 'Result':
             st.session_state.page = 'Analysis'
             st.experimental_rerun()
         elif choice == '지문 분석(beta)' and st.session_state.page != 'TextAnalysis':
