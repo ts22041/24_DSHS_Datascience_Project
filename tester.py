@@ -118,20 +118,15 @@ class Auth:
             return None, None
 
     @staticmethod
-    def store_session(token):
-        if os.path.exists('token.pickle'):
-            os.remove('token.pickle')
-        with open('token.pickle', 'wb') as f:
-            pickle.dump(token, f)
+    def store_session(token, session_id):
+        st.session_state[f'token_{session_id}'] = token
 
     @staticmethod
-    def load_token():
+    def store_session(token, session_id):
         try:
-            with open('token.pickle', 'rb') as f:
-                token = pickle.load(f)
-            return token
-        except:
-            return None
+            st.session_state[f'token_{session_id}'] = token
+        except Exception as e:
+            print(f"Error storing the token: {e}")
 
     @staticmethod
     def authenticate_token(token):
