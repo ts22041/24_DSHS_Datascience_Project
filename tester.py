@@ -408,8 +408,8 @@ def func_sidebar(p):
         elif choice == "테스트 응시(beta)" and st.session_state.page != 'TestWithoutLogin' and st.session_state.page != 'Question':
             st.session_state.page = 'TestWithoutLogin'
             st.experimental_rerun()
-        elif choice == '성적 분석' and st.session_state.page != 'Result':
-            st.session_state.page = 'Result'
+        elif choice == '성적 분석' and st.session_state.page != 'DisplayResultFromFiles' and st.session_state.page != 'Analysis':
+            st.session_state.page = 'DisplayResultFromFiles'
             st.experimental_rerun()
         elif choice == '지문 분석(beta)' and st.session_state.page != 'TextAnalysis':
             st.session_state.page = 'TextAnalysis'
@@ -583,8 +583,9 @@ def page_home():
     if st.session_state.isLogin:
         btn_logout = st.button('로그아웃')
         if btn_logout:
-            Auth.revoke_token(Auth.load_token(st.session_state.sessionId), st.session_state.sessionId)
+            Auth.revoke_token(st.session_state.sessionId)
             st.session_state.sessionId = None
+            st.session_state[f'token_{st.session_state.sessionId}'] = None
             st.session_state.userId = None
             st.session_state.username = 'DSHS'
             st.session_state.dailyamount = 40
@@ -864,10 +865,50 @@ def page_testWithoutLogin():
     func_sidebar(2)
 
 def page_question():
+    if st.session_state.isLogin == True:
+        func_sidebar(3)
+    else:
+        func_sidebar(2)
+
     if st.session_state.questionPageRequest == st.session_state.testPageRequest:
         st.title('테스트 결과')
         results_df = pd.DataFrame(st.session_state.testPageResponses)
-        st.write(results_df)
+        db_instance = DB(st.session_state.userId)
+        db_instance.save_result(results_df.to_dict('records'))
+        st.write("테스트 결과가 성공적으로 저장되었습니다.")
+        st.write('_' * 50)
+        results_df.index = results_df.index + 1
+        col1, col2 = st.columns(2)
+        with col1:
+            st.write(f'**테스트 결과**')
+            st.write(results_df, height=500)
+        with col2:
+            st.write(f'**{st.session_state.questionPageRequest}문항 테스트 정답률**')
+            incorrect_words = []
+            col1, col2, col3 = st.columns([1.5, 7, 1.5])
+            with col2:
+                result = results_df['correct'].value_counts()
+                colors = ['orange', 'gray']
+                fig1, ax1 = plt.subplots()
+                ax1.pie(result, colors=colors, startangle=90)
+                centre_circle = plt.Circle((0, 0), 0.75, fc='white')
+                fig = plt.gcf()
+                fig.gca().add_artist(centre_circle)
+                ax1.text(0, 0, f'{result[0]}/{len(results_df)}', ha='center', va='center', fontsize=25, color='black')
+                st.pyplot(fig1)
+            st.write('_' * 20)
+
+            st.write('**틀린 문항 확인**')
+            incorrect = results_df.loc[results_df['correct'] == False]
+            incorrect_words.extend(incorrect['question'].tolist())
+            st.write(incorrect)
+        st.write('_' * 50)
+        if st.button("성적 분석"):
+            st.session_state.resultPageRequest = incorrect_words
+            st.session_state.page = 'Analysis'
+            st.experimental_rerun()
+
+
     else:
         st.write(f'**{st.session_state.questionPageRequest + 1}/{st.session_state.testPageRequest}**')
         question = st.session_state.testQuestions[st.session_state.questionPageRequest]
@@ -906,12 +947,7 @@ def page_question():
                 st.session_state.questionPageRequest += 1
                 st.experimental_rerun()
 
-    if st.session_state.isLogin == True:
-        func_sidebar(3)
-    else:
-        func_sidebar(2)
-
-def page_result():
+def page_displayResultFromFiles():
     st.title("테스트 응시 결과 분석")
     st.write("**분석할 테스트 결과 파일을 업로드해주세요.**")
     uploaded_files = st.file_uploader("Choose a CSV file", accept_multiple_files=True)
@@ -1124,13 +1160,26 @@ def page_myPage():
 if 'sessionId' not in st.session_state:
     st.session_state['sessionId'] = str(uuid.uuid4())
 
-loaded_token = Auth.load_token(st.session_state['sessionId'])
-if loaded_token and Auth.authenticate_token(loaded_token):
-    # Set user login state and other details
-    st.session_state['isLogin'] = True
-    st.session_state['userId'] = Auth.authenticate_token(loaded_token)
-else:
+if 'isLogin' not in st.session_state:
     st.session_state['isLogin'] = False
+    loaded_token = Auth.load_token(st.session_state['sessionId'])
+    if loaded_token:
+        user_id = Auth.authenticate_token(loaded_token)
+        if user_id:
+            st.session_state['isLogin'] = True
+            st.session_state['userId'] = user_id
+        else:
+            st.session_state['isLogin'] = False
+else:
+    if not st.session_state['isLogin']:
+        loaded_token = Auth.load_token(st.session_state['sessionId'])
+        if loaded_token:
+            user_id = Auth.authenticate_token(loaded_token)
+            if user_id:
+                st.session_state['isLogin'] = True
+                st.session_state['userId'] = user_id
+            else:
+                st.session_state['isLogin'] = False
 
 if 'userId' not in st.session_state:
     st.session_state.userId = None
@@ -1162,13 +1211,6 @@ if 'completed_days' not in st.session_state:
     st.session_state.completed_days = []
 
 
-
-if Auth.authenticate_token(Auth.load_token(st.session_state.sessionId)):
-    st.session_state['login'] = True
-else:
-    st.session_state['login'] = False
-
-
 if 'page' not in st.session_state:
     st.session_state.page = 'Login'
 
@@ -1198,8 +1240,8 @@ elif st.session_state.page == 'Question':
     page_question()
 elif st.session_state.page == 'Bookmark':
     page_bookmark()
-elif st.session_state.page == 'Result':
-    page_result()
+elif st.session_state.page == 'DisplayResultFromFiles':
+    page_displayResultFromFiles()
 elif st.session_state.page == 'Analysis':
     page_analysis()
 elif st.session_state.page == 'TextAnalysis':
