@@ -950,7 +950,7 @@ def page_question():
                 st.experimental_rerun()
 
 def page_displayResultFromFiles():
-    func_sidebar(4)
+    #func_sidebar(4)
     st.title("테스트 응시 결과 분석")
     st.write("**분석할 테스트 결과 파일을 업로드해주세요.**")
     uploaded_files = st.file_uploader("Choose a CSV file", accept_multiple_files=True)
@@ -1062,9 +1062,11 @@ def page_result():
             st.experimental_rerun()
 
 def page_analysis():
+    if st.session_state.isLogin == True:
+        func_getUserInfo(st.session_state.userId)
     func_sidebar(4)
     if st.button('파일에서 테스트 결과 업로드'):
-        st.session_state.page == 'DisplayResultFromFiles'
+        st.session_state.page = 'DisplayResultFromFiles'
         st.experimental_rerun()
 
 def page_textAnalysis():
