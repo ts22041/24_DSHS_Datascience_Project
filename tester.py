@@ -907,7 +907,7 @@ def page_question():
         st.write('_' * 50)
         if st.button("성적 분석"):
             st.session_state.resultPageRequest = incorrect_words
-            st.session_state.page = 'Analysis'
+            st.session_state.page = 'Result'
             st.experimental_rerun()
 
 
