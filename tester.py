@@ -408,7 +408,7 @@ def func_sidebar(p):
         elif choice == "단어 학습" and st.session_state.page != 'Learn':
             st.session_state.page = 'Learn'
             st.experimental_rerun()
-        elif choice == "테스트 응시" and st.session_state.page != 'Test':
+        elif choice == "테스트 응시" and st.session_state.page != 'Test' and st.session_state.page != 'Question':
             st.session_state.page = 'Test'
             st.experimental_rerun()
         elif choice == "테스트 응시(beta)" and st.session_state.page != 'TestWithoutLogin' and st.session_state.page != 'Question':
