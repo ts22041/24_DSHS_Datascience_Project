@@ -767,6 +767,12 @@ def page_day():
 
     if st.session_state.isLogin == True:
         func_getUserInfo(st.session_state.userId)
+        
+    if st.session_state.isLogin == True:
+        func_getUserInfo(st.session_state.userId)
+        func_sidebar(2)
+    else:
+        func_sidebar(1)
 
     st.title(f'**단어 학습 Day {st.session_state.learnPageRequest}**')
     current_word_index = st.session_state.dayPageRequest - (st.session_state.learnPageRequest - 1) * st.session_state.dailyamount
@@ -806,10 +812,6 @@ def page_day():
     func_showWords(st.session_state.dayPageRequest)
 
     st.page_link('http://www.eng-exams.net/quizbank/qbank.php', label='수능 영어 기출 문제 바로가기')
-
-    if st.sidebar.button("학습 리스트"):
-        st.session_state.page = 'Learn'
-        st.experimental_rerun()
 
 def page_test():
     st.title("테스트 응시")
