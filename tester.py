@@ -520,7 +520,7 @@ def page_home():
                 최근 학습 진도
             </div>
             """, unsafe_allow_html=True)
-    completed_count = sum(st.session_state.completed_days)
+    completed_count = max(st.session_state.completed_days)
     if st.button(f"Day {completed_count + 1}"):
         st.session_state.learnPageRequest = completed_count + 1
         st.session_state.dayPageRequest = (st.session_state.learnPageRequest - 1) * st.session_state.dailyamount + 1
