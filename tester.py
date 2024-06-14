@@ -475,7 +475,7 @@ def page_register():
             if res is None:
                 idToken, user_id = Auth.login_user(user_email, user_pw)
                 if idToken is not None:
-                    Auth.store_session(idToken)
+                    Auth.store_session(idToken, st.session_state.sessionId)
                     st.session_state.userId = user_id
                     st.session_state.isLogin = True
                 st.session_state.page = 'InputUsername'
