@@ -1353,16 +1353,28 @@ def page_info():
 def page_myPage():
     if st.session_state.isLogin == True:
         func_getUserInfo(st.session_state.userId)
-    st.write(st.session_state.userId)
-    st.write(st.session_state.username)
-    st.write(st.session_state.level)
-    st.write('mypage')
-
-    func_sidebar(1)
+    st.title('My Page')
+    st.subheader('사용자 기본 정보')
+    st.write('사용자 이름: ',st.session_state.username)
+    st.write('사용자 level: ',st.session_state.level)
+    st.write('Day별 학습량: ', f'{st.session_state.dailyamount}')
+    if st.button('수정하기'):
+        st.warning('아직 준비 중인 기능입니다')
+    st.write('-'*50)
+    st.subheader('DB 정보')
+    st.write('사용자 DB ID: ', st.session_state.userId)
+    st.write('테스트 응시 데이터:')
 
     if st.button('파일에서 테스트 결과 업로드'):
         st.session_state.page = 'DisplayResultFromFiles'
         st.experimental_rerun()
+
+    st.write('-' * 50)
+    if st.button('회원탈퇴'):
+        st.warning('아직 준비 중인 기능입니다')
+    st.write('기타 문의(이메일): songyu0205@naver.com')
+
+    func_sidebar(1)
 
 
 if 'sessionId' not in st.session_state:
