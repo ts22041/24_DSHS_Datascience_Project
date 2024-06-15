@@ -1,6 +1,6 @@
 import numpy as np
 import pyrebase
-import os
+import re
 
 import uuid
 
@@ -215,6 +215,10 @@ def draw_figure5():
     st.pyplot(plt)
     st.write('')
 
+def sanitize_filename(filename):
+    """파일 이름을 안전하게 변환하여 JSON 키로 사용할 수 있도록 합니다."""
+    return re.sub(r'\W+', '_', filename)  # 비문자/숫자를 언더스코어로 치환
+
 def func_textAnalysis():
     text = st.text_input("아래 내용을 삭제하고 입력하세요", 'There is something deeply paradoxical about the professional status of sports journalism, especially in the medium of print.  In discharging their usual responsibilities of description and commentary, reporters’ accounts of sports events are eagerly consulted by sports fans, while in their broader journalistic role of covering sport in its many forms, sports journalists are among the most visible of all contemporary writers.  The ruminations of the elite class of ‘celebrity’ sports journalists are much sought after by the major newspapers, their lucrative contracts being the envy of colleagues in other ‘disciplines’ of journalism.  Yet sports journalists do not have a standing in their profession that corresponds to the size of their readerships or of their pay packets, with the old saying (now reaching the status of cliché) that sport is the ‘toy department of the news media’ still readily to hand as a dismissal of the worth of what sports journalists do.  This reluctance to take sports journalism seriously produces the paradoxical outcome that sports newspaper writers are much read but little admired.', placeholder='분석할 텍스트를 입력하세요.')
     with st.container():
@@ -363,6 +367,10 @@ def func_getUserInfo(user_id):
         st.session_state.sessionnumber = user_info.get('sessionnumber')
         st.session_state.bookmarks = set(user_info.get('bookmarks', []))
         st.session_state.completed_days = user_info.get('completed_days')
+        processed_files = user_info.get('processed_files', {})
+        st.session_state.processed_files = processed_files if isinstance(processed_files, dict) else {}
+        processed_test_results = user_info.get('processed_test_results', {})
+        st.session_state.processed_test_results = processed_test_results if isinstance(processed_test_results, dict) else {}
     else:
         st.session_state.page = 'InputUsername'
         st.experimental_rerun()
@@ -396,19 +404,19 @@ def func_sidebar(p):
         if choice == "Home" and st.session_state.page != 'Home':
             st.session_state.page = 'Home'
             st.experimental_rerun()
-        elif choice == 'My Page' and st.session_state.page != 'MyPage':
+        elif choice == 'My Page' and st.session_state.page != 'MyPage' and st.session_state.page != 'DisplayResultFromFiles' :
             st.session_state.page = 'MyPage'
             st.experimental_rerun()
-        elif choice == "단어 학습" and st.session_state.page != 'Learn' and st.session_state.page != 'Day':
+        elif choice == "단어 학습" and st.session_state.page != 'Learn' and st.session_state.page != 'Day' and st.session_state.page != 'Bookmark':
             st.session_state.page = 'Learn'
             st.experimental_rerun()
-        elif choice == "테스트 응시" and st.session_state.page != 'Test' and st.session_state.page != 'Question':
+        elif choice == "테스트 응시" and st.session_state.page != 'Test' and st.session_state.page != 'Question' and st.session_state.page != 'Result':
             st.session_state.page = 'Test'
             st.experimental_rerun()
         elif choice == "테스트 응시(beta)" and st.session_state.page != 'TestWithoutLogin' and st.session_state.page != 'Question':
             st.session_state.page = 'TestWithoutLogin'
             st.experimental_rerun()
-        elif choice == '성적 분석' and st.session_state.page != 'Analysis' and st.session_state.page != 'DisplayResultFromFiles' and st.session_state.page != 'Result':
+        elif choice == '성적 분석' and st.session_state.page != 'Analysis':
             st.session_state.page = 'Analysis'
             st.experimental_rerun()
         elif choice == '지문 분석(beta)' and st.session_state.page != 'TextAnalysis':
@@ -601,6 +609,12 @@ def page_home():
             st.session_state.resultPageRequest = []
             st.session_state.completed_days = []
             st.session_state.isLogin = False
+            st.session_state.sessionId = None
+            st.session_state.test_id = 0
+            del st.session_state.process
+            del st.session_state.resultsDB
+            del st.session_state.resultsDB_error_rate
+            del st.session_state.resultsDB_incorrect_stats
             st.session_state.page = 'Login'
             st.experimental_rerun()
 
@@ -664,6 +678,9 @@ def page_bookmark():
 
     if st.session_state.isLogin == True:
         func_getUserInfo(st.session_state.userId)
+        func_sidebar(2)
+    else:
+        func_sidebar(1)
 
     st.title("북마크")
     st.write("**북마크한 단어를 확인해 보세요.**")
@@ -681,46 +698,43 @@ def page_bookmark():
         example2 = word_row['예시문2']
         example3 = word_row['예시문3']
 
-        st.title(word)
-        st.write(f'**테마: {theme}**')
-        st.write('_' * 50)
-        col1, col2, col3 = st.columns([2, 1, 7])
-        with col1:
-            st.write(f'**{meaning1}**')
-        with col2:
-            st.write(f'{pos1}')
-        with col3:
-            st.write(example1)
-        st.write('_' * 50)
-
-        if not pd.isna(pos2):
+        with st.form(str(wordId)):
+            st.title(word)
+            st.write(f'**테마: {theme}**')
+            st.write('_' * 50)
             col1, col2, col3 = st.columns([2, 1, 7])
             with col1:
-                st.write(f'**{meaning2}**')
+                st.write(f'**{meaning1}**')
             with col2:
-                st.write(f'{pos2}')
+                st.write(f'{pos1}')
             with col3:
-                st.write(example2)
+                st.write(example1)
             st.write('_' * 50)
 
-        if not pd.isna(pos3):
-            col1, col2, col3 = st.columns([2, 1, 7])
-            with col1:
-                st.write(f'**{meaning3}**')
-            with col2:
-                st.write(f'{pos3}')
-            with col3:
-                st.write(example3)
-            st.write('_' * 50)
+            if not pd.isna(pos2):
+                col1, col2, col3 = st.columns([2, 1, 7])
+                with col1:
+                    st.write(f'**{meaning2}**')
+                with col2:
+                    st.write(f'{pos2}')
+                with col3:
+                    st.write(example2)
+                st.write('_' * 50)
 
-        if st.button('북마크 제거', key=f'choice{word}'):
-            st.session_state.bookmarks.remove(wordId)
-            func_saveUserInfo(user_id=st.session_state.userId, info_type='bookmarks', data=st.session_state.bookmarks)
-            st.experimental_rerun()
+            if not pd.isna(pos3):
+                col1, col2, col3 = st.columns([2, 1, 7])
+                with col1:
+                    st.write(f'**{meaning3}**')
+                with col2:
+                    st.write(f'{pos3}')
+                with col3:
+                    st.write(example3)
+                st.write('_' * 50)
 
-    if st.sidebar.button("Home"):
-        st.session_state.page = 'Home'
-        st.experimental_rerun()
+            if st.form_submit_button('북마크 제거'):
+                st.session_state.bookmarks.remove(wordId)
+                func_saveUserInfo(user_id=st.session_state.userId, info_type='bookmarks', data=st.session_state.bookmarks)
+                st.experimental_rerun()
 
 def page_learn():
     func_withoutLoginNotice()
@@ -817,6 +831,7 @@ def page_test():
         st.session_state.questionPageRequest = 0
         st.session_state.testQuestions = func_createQuestions(st.session_state.testPageRequest)
         st.session_state.testPageResponses = []
+        st.session_state.test_id = str(uuid.uuid4())
         st.session_state.page = 'Question'
         st.experimental_rerun()
     if st.button('30단어 테스트'):
@@ -824,6 +839,7 @@ def page_test():
         st.session_state.questionPageRequest = 0
         st.session_state.testQuestions = func_createQuestions(st.session_state.testPageRequest)
         st.session_state.testPageResponses = []
+        st.session_state.test_id = str(uuid.uuid4())
         st.session_state.page = 'Question'
         st.experimental_rerun()
     if st.button('50단어 테스트'):
@@ -831,6 +847,7 @@ def page_test():
         st.session_state.questionPageRequest = 0
         st.session_state.testQuestions = func_createQuestions(st.session_state.testPageRequest)
         st.session_state.testPageResponses = []
+        st.session_state.test_id = str(uuid.uuid4())
         st.session_state.page = 'Question'
         st.experimental_rerun()
 
@@ -865,6 +882,8 @@ def page_testWithoutLogin():
     func_sidebar(2)
 
 def page_question():
+    func_getUserInfo(st.session_state.userId)
+    test_id = st.session_state.test_id
     if st.session_state.isLogin == True:
         func_sidebar(3)
     else:
@@ -873,10 +892,14 @@ def page_question():
     if st.session_state.questionPageRequest == st.session_state.testPageRequest:
         st.title('테스트 결과')
         results_df = pd.DataFrame(st.session_state.testPageResponses)
-        if not hasattr(st.session_state, 'results_saved'):
+        if 'processed_test_results' not in st.session_state:
+            st.session_state['processed_test_results'] = {}
+        if test_id not in st.session_state['processed_test_results']:
+            st.session_state['processed_test_results'][test_id] = False
             db_instance = DB(st.session_state.userId)
             db_instance.save_result(results_df.to_dict('records'))
-            st.session_state.results_saved = True
+            st.session_state['processed_test_results'][test_id] = True
+            func_saveUserInfo(st.session_state.userId, 'processed_test_results', st.session_state.processed_test_results)
         st.write("테스트 결과가 성공적으로 저장되었습니다.")
         st.write('_' * 50)
         results_df.index = results_df.index + 1
@@ -951,60 +974,89 @@ def page_question():
                 st.experimental_rerun()
 
 def page_displayResultFromFiles():
-    func_sidebar(4)
+    # 사용자 정보 및 파일 처리 상태 불러오기
+    func_getUserInfo(st.session_state.userId)
+    func_sidebar(1)
+
     st.title("테스트 응시 결과 분석")
     st.write("**분석할 테스트 결과 파일을 업로드해주세요.**")
     uploaded_files = st.file_uploader("Choose a CSV file", accept_multiple_files=True)
-    incorrect_words = []
 
-    for file in uploaded_files:
-        name = file.name
-        st.write(name)
-        file = pd.read_csv(file)
-        file = pd.DataFrame(file)
-        results_df = file.drop(columns=['Unnamed: 0'])
-        db_instance = DB(st.session_state.userId)
-        db_instance.save_result(results_df.to_dict('records'))
-        file.index = file.index+1
-        col1, col2 = st.columns(2)
-        with col1:
-            result = file.drop(columns=['Unnamed: 0'])
-            st.write(result)
-        with col2:
-            st.write(f"{name.split('-')[0]}년 {name.split('-')[1]}월 {name.split('-')[2][:2]}일 응시")
-            st.write(f'**{len(file)}문항 테스트 응시 결과**')
-            col1, col2, col3 = st.columns([1.5,7,1.5])
-            with col2:
-                result = result['correct'].value_counts()
-                colors = ['orange', 'gray']
-                fig1, ax1 = plt.subplots()
-                ax1.pie(result, colors=colors, startangle=90)
-                centre_circle = plt.Circle((0, 0), 0.75, fc='white')
-                fig = plt.gcf()
-                fig.gca().add_artist(centre_circle)
-                ax1.text(0, 0, f'{result[0]}/{len(file)}', ha='center', va='center', fontsize=25, color='black')
-                st.pyplot(fig1)
+    if uploaded_files:
+        if 'processed_files' not in st.session_state:
+            st.session_state['processed_files'] = {}
 
-            st.write('_'*20)
+        incorrect_words = []
 
-            st.write('**틀린 문항 확인**')
-            incorrect = file.loc[file['correct'] == False]
-            incorrect_words.extend(incorrect['question'].tolist())
-            incorrect = incorrect.drop(columns=['Unnamed: 0', 'correct'])
-            st.write(incorrect)
-        st.write('_'*50)
+        for file in uploaded_files:
+            safe_name = sanitize_filename(file.name)
+            if safe_name not in st.session_state['processed_files']:
+                st.session_state['processed_files'][safe_name] = False  # 파일 처리 상태 초기화
 
-    if st.button("Submit"):
-        st.session_state.resultPageRequest = incorrect_words
-        st.session_state.page = 'Result'
-        st.experimental_rerun()
+                name = file.name
+                st.write(name)
+                file_data = pd.read_csv(file)
+                file_data = pd.DataFrame(file_data)
+                results_df = file_data.drop(columns=['Unnamed: 0'])
+
+                db_instance = DB(st.session_state.userId)
+                db_instance.save_result(results_df.to_dict('records'))
+                st.session_state['processed_files'][safe_name] = True
+                func_saveUserInfo(st.session_state.userId, 'processed_files', st.session_state.processed_files)
+
+                file_data.index = file_data.index + 1
+                col1, col2 = st.columns(2)
+                with col1:
+                    result = file_data.drop(columns=['Unnamed: 0'])
+                    st.write(result)
+                with col2:
+                    st.write(f"{name.split('-')[0]}년 {name.split('-')[1]}월 {name.split('-')[2][:2]}일 응시")
+                    st.write(f'**{len(file_data)}문항 테스트 응시 결과**')
+                    col1, col2, col3 = st.columns([1.5, 7, 1.5])
+                    with col2:
+                        result = result['correct'].value_counts()
+                        colors = ['orange', 'gray']
+                        fig1, ax1 = plt.subplots()
+                        ax1.pie(result, colors=colors, startangle=90)
+                        centre_circle = plt.Circle((0, 0), 0.75, fc='white')
+                        fig = plt.gcf()
+                        fig.gca().add_artist(centre_circle)
+                        ax1.text(0, 0, f'{result[0]}/{len(file_data)}', ha='center', va='center', fontsize=25,
+                                 color='black')
+                        st.pyplot(fig1)
+
+                    st.write('_' * 20)
+
+                    st.write('**틀린 문항 확인**')
+                    incorrect = file_data.loc[file_data['correct'] == False]
+                    incorrect_words.extend(incorrect['question'].tolist())
+                    incorrect = incorrect.drop(columns=['Unnamed: 0', 'correct'])
+                    st.write(incorrect)
+                st.write('_' * 50)
+
+                if st.session_state['processed_files'][safe_name]:
+                    st.write("테스트 결과가 성공적으로 저장되었습니다.")
+
+            else:
+                st.write('이미 업로드한 파일입니다')
+
+        safe_names = [sanitize_filename(file.name) for file in uploaded_files]
+
+        if uploaded_files and all(st.session_state['processed_files'].get(safe_name, False) for safe_name in safe_names):
+            if st.button("Submit"):
+                st.session_state.resultPageRequest = incorrect_words
+                st.session_state.page = 'MyPage'
+                st.experimental_rerun()
 
 def page_result():
-    st.session_state.results_saved = False
     if st.session_state.isLogin == True:
         func_getUserInfo(st.session_state.userId)
-    func_sidebar(4)
+    func_sidebar(3)
     st.title("틀린 단어 학습")
+    if st.button('학습 완료'):
+        st.session_state.page = 'Test'
+        st.experimental_rerun()
+    st.markdown('<hr style="border:1.5px solid black">', unsafe_allow_html=True)
     incorrect_words = st.session_state.resultPageRequest
     for word in incorrect_words:
         word_row = word_data.loc[word_data['영어단어'] == word].iloc[0]
@@ -1021,53 +1073,96 @@ def page_result():
         example2 = word_row['예시문2']
         example3 = word_row['예시문3']
 
-        st.title(word)
-        st.write(f'**테마: {theme}**')
-        st.write('_' * 50)
-        col1, col2, col3 = st.columns([2, 1, 7])
-        with col1:
-            st.write(f'**{meaning1}**')
-        with col2:
-            st.write(f'{pos1}')
-        with col3:
-            st.write(example1)
-        st.write('_' * 50)
-
-        if not pd.isna(pos2):
+        wordId = wordId.astype(np.string_)
+        with st.form(key=wordId):
+            st.title(word)
+            st.write(f'**테마: {theme}**')
+            st.write('_' * 50)
             col1, col2, col3 = st.columns([2, 1, 7])
             with col1:
-                st.write(f'**{meaning2}**')
+                st.write(f'**{meaning1}**')
             with col2:
-                st.write(f'{pos2}')
+                st.write(f'{pos1}')
             with col3:
-                st.write(example2)
+                st.write(example1)
             st.write('_' * 50)
 
-        if not pd.isna(pos3):
-            col1, col2, col3 = st.columns([2, 1, 7])
-            with col1:
-                st.write(f'**{meaning3}**')
-            with col2:
-                st.write(f'{pos3}')
-            with col3:
-                st.write(example3)
-            st.write('_' * 50)
+            if not pd.isna(pos2):
+                col1, col2, col3 = st.columns([2, 1, 7])
+                with col1:
+                    st.write(f'**{meaning2}**')
+                with col2:
+                    st.write(f'{pos2}')
+                with col3:
+                    st.write(example2)
+                st.write('_' * 50)
 
-        if st.button('북마크 추가', key=f'choice{word}'):
-            wordId = wordId.astype(np.string_)
-            wordId = int(wordId)
-            st.session_state.bookmarks.add(wordId)
-            if st.session_state.isLogin == True:
-                func_saveUserInfo(user_id=st.session_state.userId, info_type='bookmarks',data=st.session_state.bookmarks)
-            st.experimental_rerun()
+            if not pd.isna(pos3):
+                col1, col2, col3 = st.columns([2, 1, 7])
+                with col1:
+                    st.write(f'**{meaning3}**')
+                with col2:
+                    st.write(f'{pos3}')
+                with col3:
+                    st.write(example3)
+                st.write('_' * 50)
+
+            if st.form_submit_button('북마크 추가'):
+                wordId = int(wordId)
+                st.session_state.bookmarks.add(wordId)
+                if st.session_state.isLogin == True:
+                    func_saveUserInfo(user_id=st.session_state.userId, info_type='bookmarks',data=st.session_state.bookmarks)
+                st.experimental_rerun()
 
 def page_analysis():
-    if st.session_state.isLogin == True:
-        func_getUserInfo(st.session_state.userId)
+    func_getUserInfo(st.session_state.userId)
     func_sidebar(4)
-    if st.button('파일에서 테스트 결과 업로드'):
-        st.session_state.page = 'DisplayResultFromFiles'
-        st.experimental_rerun()
+    if 'process' not in st.session_state:
+        st.session_state.process = False
+    if st.session_state.process:
+        st.title('성적 분석')
+        st.subheader(f'{st.session_state.username} 님은 현재 {st.session_state.level} level입니다.')
+        st.warning('응시한 결과가 반영되지 않았다면, 로그아웃을 시도한 후 다시 로그인을 시도하십시오.')
+        st.write(f'**누적 오답률: {st.session_state.resultsDB_error_rate:.2f}%**')
+        st.write(f'**누적 응시 횟수: {len(st.session_state.resultsDB)}**')
+        st.write(st.session_state.resultsDB_incorrect_stats)
+
+
+    else:
+        st.info('데이터베이스에서 분석할 데이터를 가져오고 있습니다')
+        db_instance = DB(st.session_state.userId)
+        resultsDB = db_instance.get_results()
+        if resultsDB:
+            st.session_state.resultsDB = resultsDB
+            results = []
+            for result in resultsDB:
+                results.append(pd.DataFrame(st.session_state.resultsDB[f'{result}']))
+            all_result_df = pd.concat(results, ignore_index=True)
+
+            # 누적 오답률 계산
+            total_questions = len(all_result_df)
+            incorrect_questions = all_result_df['correct'].value_counts().get(False)
+            error_rate = (incorrect_questions / total_questions) * 100 if total_questions else 0
+            if 'resultsDB_error_rate' not in st.session_state:
+                st.session_state.resultsDB_error_rate = error_rate
+
+            # 누적 오답 기록 df 생성
+            incorrect_answers = all_result_df[all_result_df['correct'] == False]
+            word_counts = incorrect_answers['question'].value_counts()
+            incorrect_stats = incorrect_answers.groupby('question').apply(lambda x: pd.Series({
+                'total_incorrect': len(x),
+                'incorrect_rate': len(x) / word_counts[x.name] * 100,
+                'responses': list(x['user_answer'])
+            })).reset_index()
+            if 'resultsDB_incorrect_stats' not in st.session_state:
+                st.session_state.resultsDB_incorrect_stats = incorrect_stats
+
+            st.session_state.process = True
+            st.experimental_rerun()
+        else:
+            st.warning('분석할 데이터가 없습니다. 테스트 결과를 업로드하거나 테스트 응시를 먼저 진행해주세요.')
+
+
 
 def page_textAnalysis():
     st.title("지문 분석(beta)")
@@ -1169,6 +1264,10 @@ def page_myPage():
 
     func_sidebar(1)
 
+    if st.button('파일에서 테스트 결과 업로드'):
+        st.session_state.page = 'DisplayResultFromFiles'
+        st.experimental_rerun()
+
 
 if 'sessionId' not in st.session_state:
     st.session_state['sessionId'] = str(uuid.uuid4())
@@ -1212,6 +1311,8 @@ if 'dayPageRequest' not in st.session_state:
     st.session_state.dayPageRequest = 0
 if 'testPageRequest' not in st.session_state:
     st.session_state.testPageRequest = 50
+if 'test_id' not in st.session_state:
+    st.session_state.test_id = 0
 if 'questionPageRequest' not in st.session_state:
     st.session_state.questionPageRequest = 0
 if 'testPageResponses' not in st.session_state:
