@@ -908,6 +908,7 @@ def page_question():
         if st.button("성적 분석"):
             st.session_state.resultPageRequest = incorrect_words
             st.session_state.page = 'Result'
+            st.session_state.results_saved = False
             st.experimental_rerun()
 
 
@@ -961,11 +962,9 @@ def page_displayResultFromFiles():
         st.write(name)
         file = pd.read_csv(file)
         file = pd.DataFrame(file)
-        if not hasattr(st.session_state, 'results_saved'):
-            results_df = file.drop(columns=['Unnamed: 0'])
-            db_instance = DB(st.session_state.userId)
-            db_instance.save_result(results_df.to_dict('records'))
-            st.session_state.results_saved = True
+        results_df = file.drop(columns=['Unnamed: 0'])
+        db_instance = DB(st.session_state.userId)
+        db_instance.save_result(results_df.to_dict('records'))
         file.index = file.index+1
         col1, col2 = st.columns(2)
         with col1:
