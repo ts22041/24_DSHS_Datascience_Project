@@ -1120,12 +1120,110 @@ def page_analysis():
     if 'process' not in st.session_state:
         st.session_state.process = False
     if st.session_state.process:
+        st.warning('응시한 결과가 반영되지 않았다면, 로그아웃을 시도한 후 다시 로그인을 시도하십시오.')
         st.title('성적 분석')
         st.subheader(f'{st.session_state.username} 님은 현재 {st.session_state.level} level입니다.')
-        st.warning('응시한 결과가 반영되지 않았다면, 로그아웃을 시도한 후 다시 로그인을 시도하십시오.')
-        st.write(f'**누적 오답률: {st.session_state.resultsDB_error_rate:.2f}%**')
-        st.write(f'**누적 응시 횟수: {len(st.session_state.resultsDB)}**')
-        st.write(st.session_state.resultsDB_incorrect_stats)
+        if st.session_state.resultsDB_error_rate > 25:
+            st.write('**아직 실력이 부족해요! 단어 학습하기부터 차근차근 진행하는 것을 추천해요!**')
+            if st.session_state.level != 'Beginner':
+                st.write('**지금은 Beginner level이 적당해요**')
+                st.session_state.level = 'Beginner'
+                func_saveUserInfo(st.session_state.userId, 'level', st.session_state.level)
+        elif st.session_state.resultsDB_error_rate > 10:
+            st.write('**잘하고 있어요! 아래에서 틀린 단어 위주로 학습하면 실력을 더 올릴 수 있을거에요.**')
+        elif st.session_state.resultsDB_error_rate > 5:
+            st.write(f'**휼륭해요! {st.session_state.username} 님 수준이면, Intermediate level이 적당해요.**')
+            st.session_state.level = 'Intermediate'
+            func_saveUserInfo(st.session_state.userId, 'level', st.session_state.level)
+        else:
+            st.write(f'**완벽해요! 단어 학습이 제대로 되어 있습니다. {st.session_state.username} 님 수준이면, **Advanced** level이 적당해요.**')
+        st.write('-'*50)
+        col1, col2 = st.columns(2)
+        with col1:
+            st.write(f'**누적 오답률:**')
+            sizes = [st.session_state.resultsDB_error_rate, 100-st.session_state.resultsDB_error_rate]
+            colors = ['orange', 'gray']
+            fig1, ax1 = plt.subplots()
+            ax1.pie(sizes, colors=colors, startangle=90, counterclock=False)
+            centre_circle = plt.Circle((0, 0), 0.80, fc='white')
+            fig = plt.gcf()
+            fig.gca().add_artist(centre_circle)
+            ax1.text(0, 0, f'{st.session_state.resultsDB_error_rate:.2f}%', ha='center', va='center', fontsize=20, color='black')
+            ax1.axis('equal')
+            st.pyplot(fig1)
+        with col2:
+            st.write(f'**누적 응시 횟수: {len(st.session_state.resultsDB)}**')
+            st.write('지난 분석 결과를 그래프로 보여줄 예정 / 잘하면 추세선도?')
+        st.write('-'*50)
+        st.subheader('복습 테스트')
+        st.write('**이전에 틀린 단어들로 이루어진 테스트를 통해, 실력을 향상시켜보세요!**')
+        if st.button('복습 테스트 응시'):
+            pass
+
+        st.write('-'*50)
+        st.subheader('자주 틀리는 단어 TOP 5')
+        st.write('')
+        resultsDB_incorrect_stats = st.session_state.resultsDB_incorrect_stats
+        resultsDB_incorrect_stats = resultsDB_incorrect_stats.sort_values(by='total_incorrect', ascending=False)
+        for result in resultsDB_incorrect_stats.head(5)['question']:
+            word_row = word_data.loc[word_data['영어단어'] == result].iloc[0]
+            wordId = word_row['번호']
+            word = word_row['영어단어']
+            theme = word_row['테마']
+            pos1 = word_row['품사1']
+            pos2 = word_row['품사2']
+            pos3 = word_row['품사3']
+            meaning1 = word_row['의미1']
+            meaning2 = word_row['의미2']
+            meaning3 = word_row['의미3']
+            example1 = word_row['예시문1']
+            example2 = word_row['예시문2']
+            example3 = word_row['예시문3']
+
+            wordId = wordId.astype(np.string_)
+            with st.form(key=wordId):
+                st.title(word)
+                st.write(f'**테마: {theme}**')
+                st.write('_' * 50)
+                col1, col2, col3 = st.columns([2, 1, 7])
+                with col1:
+                    st.write(f'**{meaning1}**')
+                with col2:
+                    st.write(f'{pos1}')
+                with col3:
+                    st.write(example1)
+                st.write('_' * 50)
+
+                if not pd.isna(pos2):
+                    col1, col2, col3 = st.columns([2, 1, 7])
+                    with col1:
+                        st.write(f'**{meaning2}**')
+                    with col2:
+                        st.write(f'{pos2}')
+                    with col3:
+                        st.write(example2)
+                    st.write('_' * 50)
+
+                if not pd.isna(pos3):
+                    col1, col2, col3 = st.columns([2, 1, 7])
+                    with col1:
+                        st.write(f'**{meaning3}**')
+                    with col2:
+                        st.write(f'{pos3}')
+                    with col3:
+                        st.write(example3)
+                    st.write('_' * 50)
+
+                responses = resultsDB_incorrect_stats[resultsDB_incorrect_stats['question'] == result]['responses'].values[0]
+                st.write('**내가 선택한 오답:**', ", ".join(responses))
+
+                if st.form_submit_button('북마크 추가'):
+                    wordId = int(wordId)
+                    st.session_state.bookmarks.add(wordId)
+                    if st.session_state.isLogin == True:
+                        func_saveUserInfo(user_id=st.session_state.userId, info_type='bookmarks',
+                                          data=st.session_state.bookmarks)
+                    st.experimental_rerun()
 
 
     else:
@@ -1161,8 +1259,6 @@ def page_analysis():
             st.experimental_rerun()
         else:
             st.warning('분석할 데이터가 없습니다. 테스트 결과를 업로드하거나 테스트 응시를 먼저 진행해주세요.')
-
-
 
 def page_textAnalysis():
     st.title("지문 분석(beta)")
