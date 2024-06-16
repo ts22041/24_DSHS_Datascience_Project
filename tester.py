@@ -1510,7 +1510,7 @@ def page_reviewTest():
         st.title(f'**{question["word"]}**')
 
         if 'selected_answer' in st.session_state:
-            st.write(f'**내가 선택한 선지: {st.session_state['selected_answer'][0]}**')
+            st.write(f"**내가 선택한 선지: {st.session_state['selected_answer'][0]}**")
             if st.session_state['selected_answer'][1]:  # If the answer was correct
                 st.success('Correct answer!')
             else:
