@@ -1,4 +1,3 @@
-import .streamlit/config.toml
 import numpy as np
 import pyrebase
 import re
