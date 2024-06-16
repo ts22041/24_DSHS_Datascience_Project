@@ -17,6 +17,8 @@ import matplotlib.pyplot as plt
 import datetime
 import matplotlib.font_manager as fm
 from streamlit_option_menu import option_menu
+import plotly.graph_objects as go
+from math import floor
 
 @st.cache_data
 def get_data():
@@ -149,6 +151,14 @@ class Auth:
             del st.session_state[f'token_{session_id}']
         st.session_state['isLogin'] = False
 
+    @staticmethod
+    def delete_firebase_user(user_id):
+        try:
+            auth.delete_user(user_id)
+            print('Successfully deleted user')
+        except auth.AuthError as error:
+            print('Error deleting user:', error)
+
 def draw_figure1():
     pos_map = {
         '명': '명사',
@@ -210,7 +220,7 @@ def draw_figure5():
         """, unsafe_allow_html=True)
     st.write('**(일상과 여가 생활 테마 제외)**')
     plt.figure(figsize=(4, 4))
-    plt.pie(theme_counts, labels=theme_counts.index, autopct='%1.1f%%', startangle=140, textprops={'fontsize': 10})
+    plt.pie(theme_counts, labels=theme_counts.index, autopct='%1.1f%%', startangle=140, textprops={'fontsize': 10, 'fontproperties': font_prop})
     plt.axis('equal')
     st.pyplot(plt)
     st.write('')
@@ -314,19 +324,69 @@ def func_showWords(wordId):
 
 def func_createQuestions(num_questions):
     questions = []
-    data = word_data
-    data = data.dropna(subset=['의미1'])
+    data = word_data.dropna(subset=['의미1'])
     meanings = list(data['의미1'])
 
-    for _ in range(num_questions):
+    used_words = set()
+
+    while len(questions) < num_questions:
         correct_row = data.sample(1)
         correct_word = correct_row['영어단어'].values[0]
+
+        if correct_word in used_words:
+            continue
+
         correct_meaning = correct_row['의미1'].values[0].split(",")[0].strip()
+
+        used_words.add(correct_word)
 
         wrong_meanings = random.sample([m for m in meanings if m != correct_meaning], 3)
         choices = random.sample([correct_meaning] + wrong_meanings, k=4)
 
         questions.append({'word': correct_word, 'choices': choices, 'correct_answer': correct_meaning})
+
+    random.shuffle(questions)
+
+    return questions
+
+def func_createReviewQuestions(incorrect_stats_df):
+    num_questions = min(len(incorrect_stats_df), 50)
+    st.session_state.testPageRequest = num_questions
+
+    question_words = incorrect_stats_df['question'].sample(n=num_questions, replace=False).tolist()
+    questions = []
+
+    for word in question_words:
+        correct_meaning = word_data[word_data['영어단어'] == word]['의미1'].values[0].strip()
+        previous_incorrects = incorrect_stats_df[incorrect_stats_df['question'] == word]['responses'].values[0]
+
+        # 과거 오답 중 최대 3개 선택
+        if len(previous_incorrects) > 3:
+            wrong_choices = random.sample(previous_incorrects, k=3)
+        else:
+            wrong_choices = previous_incorrects[:]
+
+        # 부족한 선택지 수 계산
+        needed_choices = 3 - len(wrong_choices)
+
+        # 필요한 경우, word_data에서 추가 오답 선택
+        if needed_choices > 0:
+            additional_meanings = list(word_data[word_data['영어단어'] != word]['의미1'].dropna().unique())
+            additional_wrong_choices = random.sample([m for m in additional_meanings if m not in previous_incorrects], k=needed_choices)
+            wrong_choices.extend(additional_wrong_choices)
+
+        # 모든 선택지를 섞음
+        choices = random.sample([correct_meaning] + wrong_choices, k=4)
+
+        # 문항 추가
+        questions.append({
+            'word': word,
+            'choices': choices,
+            'correct_answer': correct_meaning
+        })
+
+    # 문항 순서를 랜덤하게 섞음
+    random.shuffle(questions)
 
     return questions
 
@@ -371,6 +431,7 @@ def func_getUserInfo(user_id):
         st.session_state.processed_files = processed_files if isinstance(processed_files, dict) else {}
         processed_test_results = user_info.get('processed_test_results', {})
         st.session_state.processed_test_results = processed_test_results if isinstance(processed_test_results, dict) else {}
+        st.session_state.analysis_data = user_info.get('analysis_data', [])
     else:
         st.session_state.page = 'InputUsername'
         st.experimental_rerun()
@@ -381,6 +442,16 @@ def func_saveUserInfo(user_id, info_type, data):
         data = list(data)
     db_instance.update_user_info({info_type: data})
     st.session_state[info_type] = data
+
+def func_saveAnalysisData(user_id, new_data):
+    db_instance = DB(user_id)
+    # Get current analysis data
+    current_data = db_instance.user_info_ref.child('analysis_data').get() or []
+    # Append new data
+    current_data.append(new_data)
+    # Save updated analysis data
+    db_instance.user_info_ref.child('analysis_data').set(current_data)
+    st.session_state['analysis_data'] = current_data
 
 def func_sidebar(p):
     with st.sidebar:
@@ -416,7 +487,7 @@ def func_sidebar(p):
         elif choice == "테스트 응시(beta)" and st.session_state.page != 'TestWithoutLogin' and st.session_state.page != 'Question':
             st.session_state.page = 'TestWithoutLogin'
             st.experimental_rerun()
-        elif choice == '성적 분석' and st.session_state.page != 'Analysis':
+        elif choice == '성적 분석' and st.session_state.page != 'Analysis' and st.session_state.page != 'ReviewTest':
             st.session_state.page = 'Analysis'
             st.experimental_rerun()
         elif choice == '지문 분석(beta)' and st.session_state.page != 'TextAnalysis':
@@ -567,8 +638,87 @@ def page_home():
                         나만의 북마크
                     </div>
                     """, unsafe_allow_html=True)
-            st.image('bookmark_icon.png', width=200)
-            col1, col2 = st.columns([6, 4])
+            if len(st.session_state.bookmarks) <= 20:
+                max_range = 20
+                steps = [
+                        {'range': [0, 5], 'color': "#fff2e6"},
+                        {'range': [5, 10], 'color': "#ffebcc"},
+                        {'range': [10, 15], 'color': "#ffe0b3"},
+                        {'range': [15, 20], 'color': "#ffd699"}
+                    ]
+                tickvals = [0, 5, 10, 15, 20]
+                ticktexts = ["0", "5", "10", "15", "20"]
+            elif len(st.session_state.bookmarks) <= 100:
+                max_range = 100
+                steps = [
+                    {'range': [0, 25], 'color': "#fff2e6"},
+                    {'range': [25, 50], 'color': "#ffebcc"},
+                    {'range': [50, 75], 'color': "#ffe0b3"},
+                    {'range': [75, 100], 'color': "#ffd699"}
+                ]
+                tickvals = [0, 25, 50, 75, 100]
+                ticktexts = ["0", "25", "50", "75", "100"]
+            elif len(st.session_state.bookmarks) <= 200:
+                max_range = 200
+                steps = [
+                    {'range': [0, 50], 'color': "#fff2e6"},
+                    {'range': [50, 100], 'color': "#ffebcc"},
+                    {'range': [100, 150], 'color': "#ffe0b3"},
+                    {'range': [150, 200], 'color': "#ffd699"}
+                ]
+                tickvals = [0, 50, 100, 150, 200]
+                ticktexts = ["0", "50", "100","150", "200"]
+            elif len(st.session_state.bookmarks) <= 1000:
+                max_range = 1000
+                steps = [
+                    {'range': [0, 250], 'color': "#fff2e6"},
+                    {'range': [250, 500], 'color': "#ffebcc"},
+                    {'range': [500, 750], 'color': "#ffe0b3"},
+                    {'range': [750, 1000], 'color': "#ffd699"}
+                ]
+                tickvals = [0, 250, 500, 750, 1000]
+                ticktexts = ["0", "250", "500", "750", "1000"]
+            else:
+                max_range = 1600
+                steps = [
+                    {'range': [0, 400], 'color': "#fff2e6"},
+                    {'range': [400, 800], 'color': "#ffebcc"},
+                    {'range': [800, 1200], 'color': "#ffe0b3"},
+                    {'range': [1200, 1600], 'color': "#ffd699"}
+                ]
+                tickvals = [0, 400, 800, 1200, 1600]
+                ticktexts = ["0", "400", "800", "1200", "1600"]
+
+            fig = go.Figure(go.Indicator(
+                mode="gauge+number",
+                value=len(st.session_state.bookmarks),
+                number={'font': {'size': 35}},
+                gauge={
+                    'axis': {'range': [0, max_range], 'tickwidth': 1, 'tickcolor': "orange",
+                             'tickvals': tickvals,
+                             'ticktext': ticktexts},
+                    'bar': {'color': "orange"},
+                    'bgcolor': "white",
+                    'borderwidth': 2,
+                    'bordercolor': "orange",
+                    'steps': steps,
+                    'threshold': {
+                        'line': {'color': "orange", 'width': 2},
+                        'thickness': 0.75,
+                        'value': len(st.session_state.bookmarks)
+                    }
+                }
+            ))
+            fig.update_layout(
+                autosize=False,
+                width=300,  # 원하는 폭으로 설정
+                height=200,  # 원하는 높이로 설정
+                margin=dict(l=15, r=30, t=20, b=0)  # 여백 설정
+            )
+            col1, col2, col3 = st.columns([1,8,1])
+            with col2:
+                st.plotly_chart(fig)
+            col1, col2 = st.columns([8, 2])
             with col1:
                 with st.container():
                     st.markdown(f"""
@@ -592,30 +742,7 @@ def page_home():
         btn_logout = st.button('로그아웃')
         if btn_logout:
             Auth.revoke_token(st.session_state.sessionId)
-            st.session_state.sessionId = None
-            st.session_state[f'token_{st.session_state.sessionId}'] = None
-            st.session_state.userId = None
-            st.session_state.username = 'DSHS'
-            st.session_state.dailyamount = 40
-            st.session_state.sessionnumber = 40
-            st.session_state.level = None
-            st.session_state.bookmarks = set()
-            st.session_state.learnPageRequest = 0
-            st.session_state.dayPageRequest = 0
-            st.session_state.testPageRequest = 50
-            st.session_state.questionPageRequest = 0
-            st.session_state.testPageResponses = 0
-            st.session_state.testQuestions = []
-            st.session_state.resultPageRequest = []
-            st.session_state.completed_days = []
-            st.session_state.isLogin = False
-            st.session_state.sessionId = None
-            st.session_state.test_id = 0
-            del st.session_state.process
-            del st.session_state.resultsDB
-            del st.session_state.resultsDB_error_rate
-            del st.session_state.resultsDB_incorrect_stats
-            st.session_state.page = 'Login'
+            st.session_state.clear()
             st.experimental_rerun()
 
 def page_inputUsername():
@@ -882,9 +1009,9 @@ def page_testWithoutLogin():
     func_sidebar(2)
 
 def page_question():
-    func_getUserInfo(st.session_state.userId)
     test_id = st.session_state.test_id
     if st.session_state.isLogin == True:
+        func_getUserInfo(st.session_state.userId)
         func_sidebar(3)
     else:
         func_sidebar(2)
@@ -894,13 +1021,13 @@ def page_question():
         results_df = pd.DataFrame(st.session_state.testPageResponses)
         if 'processed_test_results' not in st.session_state:
             st.session_state['processed_test_results'] = {}
-        if test_id not in st.session_state['processed_test_results']:
+        if test_id not in st.session_state['processed_test_results'] and st.session_state.isLogin == True:
             st.session_state['processed_test_results'][test_id] = False
             db_instance = DB(st.session_state.userId)
             db_instance.save_result(results_df.to_dict('records'))
             st.session_state['processed_test_results'][test_id] = True
             func_saveUserInfo(st.session_state.userId, 'processed_test_results', st.session_state.processed_test_results)
-        st.write("테스트 결과가 성공적으로 저장되었습니다.")
+            st.write("테스트 결과가 성공적으로 저장되었습니다.")
         st.write('_' * 50)
         results_df.index = results_df.index + 1
         col1, col2 = st.columns(2)
@@ -928,11 +1055,12 @@ def page_question():
             incorrect_words.extend(incorrect['question'].tolist())
             st.write(incorrect)
         st.write('_' * 50)
-        if st.button("성적 분석"):
-            st.session_state.resultPageRequest = incorrect_words
-            st.session_state.page = 'Result'
-            st.session_state.results_saved = False
-            st.experimental_rerun()
+        if st.session_state.isLogin == True:
+            if st.button("성적 분석"):
+                st.session_state.resultPageRequest = incorrect_words
+                st.session_state.page = 'Result'
+                st.session_state.results_saved = False
+                st.experimental_rerun()
 
 
     else:
@@ -1054,7 +1182,7 @@ def page_result():
     func_sidebar(3)
     st.title("틀린 단어 학습")
     if st.button('학습 완료'):
-        st.session_state.page = 'Test'
+        st.session_state.page = 'Home'
         st.experimental_rerun()
     st.markdown('<hr style="border:1.5px solid black">', unsafe_allow_html=True)
     incorrect_words = st.session_state.resultPageRequest
@@ -1153,18 +1281,72 @@ def page_analysis():
             st.pyplot(fig1)
         with col2:
             st.write(f'**누적 응시 횟수: {len(st.session_state.resultsDB)}**')
-            st.write('지난 분석 결과를 그래프로 보여줄 예정 / 잘하면 추세선도?')
+
+            bookmark_count = len(st.session_state.resultsDB)
+            total_icons = 10
+            filled_icons = floor(bookmark_count / total_icons)
+            partial_fill = (bookmark_count % total_icons) / total_icons
+
+            def create_icon_html(filled, partial_fill=0):
+                filled_icon = '<i class="fas fa-file-alt" style="color: orange; font-size: 24px; margin-right: 10px;"></i>'
+                empty_icon = '<i class="fas fa-file-alt" style="color: lightgrey; font-size: 24px; margin-right: 10px;"></i>'
+                partial_icon = f'<i class="fas fa-file-alt" style="color: orange; opacity: {partial_fill}; font-size: 24px; margin-right: 10px;"></i>'
+
+                icons_html = filled_icon * filled + (partial_icon if partial_fill else empty_icon) + empty_icon * (
+                        total_icons - filled - 1)
+                return icons_html
+
+            icons_html = create_icon_html(filled_icons, partial_fill)
+            st.markdown(f'<div style="display: flex;">{icons_html}</div>', unsafe_allow_html=True)
+
+            st.markdown(
+                '<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">',
+                unsafe_allow_html=True)
+
+            st.write('**성적 분석 결과 동향**')
+            analysis_data = st.session_state.analysis_data
+            error_rates = [result['error_rate'] for result in analysis_data]
+            test_attempts = [data['test_attempts'] for data in analysis_data]
+            timestamps = [datetime.datetime.fromisoformat(result['timestamp']).strftime('%y-%m-%d') for result in analysis_data]
+
+            fig, ax1 = plt.subplots(figsize=(10, 5))
+
+            color = 'gray'
+            ax2 = ax1.twinx()
+            ax2.set_ylabel('누적 응시 횟수', color=color, fontsize=25)
+            ax2.plot(timestamps, test_attempts, color=color, marker='o', linestyle='-', linewidth=2, zorder=2)
+            ax2.tick_params(axis='y', labelcolor=color)
+
+            color = 'orange'
+            ax1.set_ylabel('누적 오답률(%)', color=color, fontsize=25)
+            ax1.plot(timestamps, error_rates, color=color, marker='o', linestyle='-', linewidth=2, zorder=1)
+            ax1.tick_params(axis='y', labelcolor=color)
+            ax1.set_xticklabels(timestamps, fontsize=20)
+
+            plt.title('Recent Analysis Results', fontsize=25)
+            plt.show()
+
+            fig.tight_layout()
+            st.pyplot(fig)
+
         st.write('-'*50)
         st.subheader('복습 테스트')
         st.write('**이전에 틀린 단어들로 이루어진 테스트를 통해, 실력을 향상시켜보세요!**')
         if st.button('복습 테스트 응시'):
-            pass
+            resultsDB_incorrect_stats = st.session_state.resultsDB_incorrect_stats
+            st.session_state.test_id = str(uuid.uuid4())
+            st.session_state.testQuestions = func_createReviewQuestions(resultsDB_incorrect_stats)
+            st.session_state.testPageRequest = len(st.session_state.testQuestions)
+            st.session_state.questionPageRequest = 0
+            st.session_state.testPageResponses = []
+            st.session_state.page = 'ReviewTest'
+            st.experimental_rerun()
 
         st.write('-'*50)
         st.subheader('자주 틀리는 단어 TOP 5')
         st.write('')
         resultsDB_incorrect_stats = st.session_state.resultsDB_incorrect_stats
-        resultsDB_incorrect_stats = resultsDB_incorrect_stats.sort_values(by='total_incorrect', ascending=False)
+        resultsDB_incorrect_stats = resultsDB_incorrect_stats.sort_values(by='incorrect_rate', ascending=False)
         for result in resultsDB_incorrect_stats.head(5)['question']:
             word_row = word_data.loc[word_data['영어단어'] == result].iloc[0]
             wordId = word_row['번호']
@@ -1214,7 +1396,9 @@ def page_analysis():
                         st.write(example3)
                     st.write('_' * 50)
 
+                incorrect_rate = resultsDB_incorrect_stats[resultsDB_incorrect_stats['question'] == result]['incorrect_rate'].values[0]
                 responses = resultsDB_incorrect_stats[resultsDB_incorrect_stats['question'] == result]['responses'].values[0]
+                st.write(f'**단어별 누적 오답률: {round(incorrect_rate)}%**')
                 st.write('**내가 선택한 오답:**', ", ".join(responses))
 
                 if st.form_submit_button('북마크 추가'):
@@ -1224,7 +1408,6 @@ def page_analysis():
                         func_saveUserInfo(user_id=st.session_state.userId, info_type='bookmarks',
                                           data=st.session_state.bookmarks)
                     st.experimental_rerun()
-
 
     else:
         st.info('데이터베이스에서 분석할 데이터를 가져오고 있습니다')
@@ -1237,28 +1420,183 @@ def page_analysis():
                 results.append(pd.DataFrame(st.session_state.resultsDB[f'{result}']))
             all_result_df = pd.concat(results, ignore_index=True)
 
-            # 누적 오답률 계산
             total_questions = len(all_result_df)
             incorrect_questions = all_result_df['correct'].value_counts().get(False)
             error_rate = (incorrect_questions / total_questions) * 100 if total_questions else 0
             if 'resultsDB_error_rate' not in st.session_state:
                 st.session_state.resultsDB_error_rate = error_rate
 
-            # 누적 오답 기록 df 생성
             incorrect_answers = all_result_df[all_result_df['correct'] == False]
-            word_counts = incorrect_answers['question'].value_counts()
+            word_counts = all_result_df['question'].value_counts()  # Total occurrences of each word
+
             incorrect_stats = incorrect_answers.groupby('question').apply(lambda x: pd.Series({
                 'total_incorrect': len(x),
-                'incorrect_rate': len(x) / word_counts[x.name] * 100,
+                'incorrect_rate': (len(x) / word_counts[x.name]) * 100,  # Use total occurrences for rate calculation
                 'responses': list(x['user_answer'])
             })).reset_index()
+
             if 'resultsDB_incorrect_stats' not in st.session_state:
                 st.session_state.resultsDB_incorrect_stats = incorrect_stats
 
             st.session_state.process = True
+
+            if st.session_state.process:
+                analysis_data = {
+                    'timestamp': datetime.datetime.now().isoformat(),
+                    'error_rate': st.session_state.resultsDB_error_rate,
+                    'test_attempts': len(st.session_state.resultsDB)
+                }
+                func_saveAnalysisData(st.session_state.userId, analysis_data)
+                st.success('분석 결과가 성공적으로 업로드되었습니다.')
+
             st.experimental_rerun()
         else:
             st.warning('분석할 데이터가 없습니다. 테스트 결과를 업로드하거나 테스트 응시를 먼저 진행해주세요.')
+
+def page_reviewTest():
+    func_getUserInfo(st.session_state.userId)
+    func_sidebar(4)
+
+    test_id = st.session_state.test_id
+
+    if st.session_state.questionPageRequest == st.session_state.testPageRequest:
+        st.title('테스트 결과')
+        results_df = pd.DataFrame(st.session_state.testPageResponses)
+        if 'processed_test_results' not in st.session_state:
+            st.session_state['processed_test_results'] = {}
+        if test_id not in st.session_state['processed_test_results']:
+            st.session_state['processed_test_results'][test_id] = False
+            db_instance = DB(st.session_state.userId)
+            db_instance.save_result(results_df.to_dict('records'))
+            st.session_state['processed_test_results'][test_id] = True
+            func_saveUserInfo(st.session_state.userId, 'processed_test_results',
+                              st.session_state.processed_test_results)
+        st.write("테스트 결과가 성공적으로 저장되었습니다.")
+        st.write('_' * 50)
+        results_df.index = results_df.index + 1
+        col1, col2 = st.columns(2)
+        with col1:
+            st.write(f'**테스트 결과**')
+            st.write(results_df, height=500)
+        with col2:
+            st.write(f'**{st.session_state.questionPageRequest}문항 테스트 정답률**')
+            incorrect_words = []
+            col1, col2, col3 = st.columns([1.5, 7, 1.5])
+            with col2:
+                result = results_df['correct'].value_counts()
+                colors = ['orange', 'gray']
+                fig1, ax1 = plt.subplots()
+                ax1.pie(result, colors=colors, startangle=90)
+                centre_circle = plt.Circle((0, 0), 0.75, fc='white')
+                fig = plt.gcf()
+                fig.gca().add_artist(centre_circle)
+                ax1.text(0, 0, f'{result[0]}/{len(results_df)}', ha='center', va='center', fontsize=25, color='black')
+                st.pyplot(fig1)
+            st.write('_' * 20)
+
+            st.write('**틀린 문항 확인**')
+            incorrect = results_df.loc[results_df['correct'] == False]
+            incorrect_words.extend(incorrect['question'].tolist())
+            st.write(incorrect)
+        st.write('_' * 50)
+        if st.button("성적 분석"):
+            st.session_state.resultPageRequest = incorrect_words
+            st.session_state.page = 'Result'
+            st.session_state.results_saved = False
+            st.experimental_rerun()
+    else:
+        st.write(f'**{st.session_state.questionPageRequest + 1}/{st.session_state.testPageRequest}**')
+        question = st.session_state.testQuestions[st.session_state.questionPageRequest]
+        st.title(f'**{question["word"]}**')
+
+        if 'selected_answer' in st.session_state:
+            st.write(f'**내가 선택한 선지: {st.session_state['selected_answer'][0]}**')
+            if st.session_state['selected_answer'][1]:  # If the answer was correct
+                st.success('Correct answer!')
+            else:
+                st.error('Wrong answer!')
+
+            st.write('')
+            resultsDB_incorrect_stats = st.session_state.resultsDB_incorrect_stats
+            word_row = word_data.loc[word_data['영어단어'] == question["word"]].iloc[0]
+            wordId = word_row['번호']
+            word = word_row['영어단어']
+            theme = word_row['테마']
+            pos1 = word_row['품사1']
+            pos2 = word_row['품사2']
+            pos3 = word_row['품사3']
+            meaning1 = word_row['의미1']
+            meaning2 = word_row['의미2']
+            meaning3 = word_row['의미3']
+            example1 = word_row['예시문1']
+            example2 = word_row['예시문2']
+            example3 = word_row['예시문3']
+
+            wordId = wordId.astype(np.string_)
+            with st.form(key=wordId):
+                st.title(word)
+                st.write(f'**테마: {theme}**')
+                st.write('_' * 50)
+                col1, col2, col3 = st.columns([2, 1, 7])
+                with col1:
+                    st.write(f'**{meaning1}**')
+                with col2:
+                    st.write(f'{pos1}')
+                with col3:
+                    st.write(example1)
+                st.write('_' * 50)
+                if not pd.isna(pos2):
+                    col1, col2, col3 = st.columns([2, 1, 7])
+                    with col1:
+                        st.write(f'**{meaning2}**')
+                    with col2:
+                        st.write(f'{pos2}')
+                    with col3:
+                        st.write(example2)
+                    st.write('_' * 50)
+                if not pd.isna(pos3):
+                    col1, col2, col3 = st.columns([2, 1, 7])
+                    with col1:
+                        st.write(f'**{meaning3}**')
+                    with col2:
+                        st.write(f'{pos3}')
+                    with col3:
+                        st.write(example3)
+                    st.write('_' * 50)
+
+                responses = \
+                resultsDB_incorrect_stats[resultsDB_incorrect_stats['question'] == question['word']]['responses'].values[0]
+                st.write('**내가 선택한 오답:**', ", ".join(responses))
+
+                if st.form_submit_button('북마크 추가'):
+                    wordId = int(wordId)
+                    st.session_state.bookmarks.add(wordId)
+                    if st.session_state.isLogin == True:
+                        func_saveUserInfo(user_id=st.session_state.userId, info_type='bookmarks',
+                                          data=st.session_state.bookmarks)
+                    st.experimental_rerun()
+
+            if st.button('Next', key='next_button'):
+                st.session_state.testPageResponses.append({
+                    'question': question['word'],
+                    'user_answer': st.session_state['selected_answer'][0],
+                    'correct': st.session_state['selected_answer'][1]
+                })
+                st.session_state.questionPageRequest += 1
+                del st.session_state['selected_answer']
+                st.experimental_rerun()
+        else:
+            col1, col2 = st.columns(2)
+            choices = question["choices"]
+            for idx, choice in enumerate(choices, start=1):
+                if idx % 2 == 1:
+                    container = col1
+                else:
+                    container = col2
+                if container.button(f'{idx}. {choice}', key=f'choice{idx}'):
+                    is_correct = choice == question['correct_answer']
+                    st.session_state['selected_answer'] = (choice, is_correct)
+                    st.experimental_rerun()
 
 def page_textAnalysis():
     st.title("지문 분석(beta)")
@@ -1354,24 +1692,55 @@ def page_myPage():
     if st.session_state.isLogin == True:
         func_getUserInfo(st.session_state.userId)
     st.title('My Page')
-    st.subheader('사용자 기본 정보')
-    st.write('사용자 이름: ',st.session_state.username)
-    st.write('사용자 level: ',st.session_state.level)
-    st.write('Day별 학습량: ', f'{st.session_state.dailyamount}')
-    if st.button('수정하기'):
-        st.warning('아직 준비 중인 기능입니다')
-    st.write('-'*50)
-    st.subheader('DB 정보')
-    st.write('사용자 DB ID: ', st.session_state.userId)
-    st.write('테스트 응시 데이터:')
+    with st.form("update_info"):
+        st.subheader('사용자 기본 정보')
+        new_username = st.text_input('사용자 이름', value=st.session_state.username)
+        new_level = st.selectbox('사용자 level', ['Beginner', 'Intermediate', 'Advanced'],
+                                 index=['Beginner', 'Intermediate', 'Advanced'].index(st.session_state.level))
+        new_dailyamount = st.selectbox('Day별 학습량', [25, 40, 50], index=[25, 40, 50].index(st.session_state.dailyamount))
 
-    if st.button('파일에서 테스트 결과 업로드'):
-        st.session_state.page = 'DisplayResultFromFiles'
-        st.experimental_rerun()
+        submit_button = st.form_submit_button("수정하기")
+        if submit_button:
+            st.session_state.username = new_username
+            st.session_state.level = new_level
+            st.session_state.dailyamount = new_dailyamount
+            st.session_state.sessionnumber = 1600 // new_dailyamount
+            st.session_state.completed_days = [False]*st.session_state.sessionnumber
+            func_saveUserInfo(st.session_state.userId, 'username', new_username)
+            func_saveUserInfo(st.session_state.userId, 'level', new_level)
+            func_saveUserInfo(st.session_state.userId, 'dailyamount', new_dailyamount)
+            func_saveUserInfo(st.session_state.userId, 'sessionnumber', st.session_state.sessionnumber)
+            func_saveUserInfo(st.session_state.userId, 'completed_days', st.session_state.completed_days)
+            st.success('정보가 성공적으로 업데이트되었습니다.')
 
-    st.write('-' * 50)
+    st.write('')
+    with st.form('DB 정보'):
+        st.subheader('DB 정보')
+        st.write('사용자 DB ID: ', st.session_state.userId)
+        st.write('테스트 응시 데이터:')
+
+        if st.form_submit_button('파일에서 테스트 결과 업로드'):
+            st.session_state.page = 'DisplayResultFromFiles'
+            st.experimental_rerun()
+
+    st.write('')
+
     if st.button('회원탈퇴'):
-        st.warning('아직 준비 중인 기능입니다')
+        user_id = st.session_state.userId
+        if Auth.delete_user(user_id):
+            # 데이터베이스에서 사용자 정보 삭제
+            db_instance = DB(user_id)
+            db_instance.delete_user_info()
+
+            # Streamlit 세션 상태 초기화
+            st.session_state.clear()
+            st.success('회원 탈퇴가 완료되었습니다. 감사합니다.')
+        else:
+            st.error('회원 탈퇴 중 문제가 발생했습니다. 다시 시도해주세요.')
+
+        # Streamlit 세션 상태 초기화
+        st.session_state.clear()
+        st.success('회원 탈퇴가 완료되었습니다. 감사합니다.')
     st.write('기타 문의(이메일): songyu0205@naver.com')
 
     func_sidebar(1)
@@ -1468,6 +1837,8 @@ elif st.session_state.page == 'Result':
     page_result()
 elif st.session_state.page == 'Analysis':
     page_analysis()
+elif st.session_state.page == 'ReviewTest':
+    page_reviewTest()
 elif st.session_state.page == 'TextAnalysis':
     page_textAnalysis()
 elif st.session_state.page == 'Info':
