@@ -245,7 +245,7 @@ def func_textAnalysis():
     col1, col2, col3 = st.columns([2,6,2])
     with col2:
         plt.figure(figsize=(4,4))
-        plt.pie(word_themes, labels=word_themes.index, autopct='%1.1f%%', startangle=140, textprops={'fontsize': 10})
+        plt.pie(word_themes, labels=word_themes.index, autopct='%1.1f%%', startangle=140, textprops={'fontsize': 10, 'fontproperties': font_prop})
         plt.axis('equal')
         st.pyplot(plt)
 
@@ -1727,7 +1727,7 @@ def page_myPage():
 
     if st.button('회원탈퇴'):
         user_id = st.session_state.userId
-        if Auth.delete_user(user_id):
+        if Auth.delete_firebase_user(user_id):
             # 데이터베이스에서 사용자 정보 삭제
             db_instance = DB(user_id)
             db_instance.delete_user_info()
