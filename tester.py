@@ -156,7 +156,7 @@ class Auth:
         try:
             auth.delete_user(user_id)
             print('Successfully deleted user')
-        except auth.AuthError as error:
+        except Exception as error:
             print('Error deleting user:', error)
 
 def draw_figure1():
@@ -1744,7 +1744,6 @@ def page_myPage():
     st.write('기타 문의(이메일): songyu0205@naver.com')
 
     func_sidebar(1)
-
 
 if 'sessionId' not in st.session_state:
     st.session_state['sessionId'] = str(uuid.uuid4())
