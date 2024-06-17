@@ -1297,12 +1297,12 @@ def page_analysis():
 
             color = 'gray'
             ax2 = ax1.twinx()
-            ax2.set_ylabel('누적 응시 횟수', color=color, fontsize=25)
+            ax2.set_ylabel('누적 응시 횟수', color=color, fontsize=25, fontproperties=font_prop)
             ax2.plot(timestamps, test_attempts, color=color, marker='o', linestyle='-', linewidth=2, zorder=2)
             ax2.tick_params(axis='y', labelcolor=color)
 
             color = 'orange'
-            ax1.set_ylabel('누적 오답률(%)', color=color, fontsize=25)
+            ax1.set_ylabel('누적 오답률(%)', color=color, fontsize=25, fontproperties=font_prop)
             ax1.plot(timestamps, error_rates, color=color, marker='o', linestyle='-', linewidth=2, zorder=1)
             ax1.tick_params(axis='y', labelcolor=color)
             ax1.set_xticklabels(timestamps, fontsize=20)
