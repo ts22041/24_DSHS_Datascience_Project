@@ -20,7 +20,6 @@ from streamlit_option_menu import option_menu
 import plotly.graph_objects as go
 from math import floor
 
-@st.cache_data
 def get_data():
     data = pd.read_csv('word_list_with_examples.csv',  delimiter=';', encoding='utf-8')
     word_data = pd.DataFrame(data)
